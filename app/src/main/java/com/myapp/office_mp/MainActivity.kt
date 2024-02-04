@@ -1,10 +1,9 @@
 package com.myapp.office_mp
 
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -33,24 +32,25 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import com.myapp.office_mp.data.Dog
-import com.myapp.office_mp.data.dogs
-
-
+import com.myapp.office_mp.email.EmailData
+import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +62,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     OfficeMPApp()
+                    val readEmailTask = ReadEmailTask()
+                    readEmailTask.execute()
+
                 }
             }
         }
@@ -71,34 +74,45 @@ class MainActivity : ComponentActivity() {
 /**
  * Composable that displays an app bar and a list of dogs.
  */
+
 @Composable
 fun OfficeMPApp() {
+    var resultList by remember { mutableStateOf<List<EmailData>>(emptyList()) }
+
+    // Вызываем ReadEmailTask в coroutine при первом запуске
+    LaunchedEffect(Unit) {
+        // Запускаем в глобальной coroutine
+        while (true) {
+            GlobalScope.launch(Dispatchers.IO) {
+                val readEmailTask = ReadEmailTask()
+                val result = readEmailTask.execute().get()
+
+                // Обновляем состояние на главном потоке
+                withContext(Dispatchers.Main) {
+                    resultList = result
+                }
+            }
+            delay( 2 * 60 * 1000) // Задержка перед следующей проверкой
+        }
+    }
     Scaffold (
         topBar = {
             OfficeMPTopAppBar()
         }
     ){ it->
         LazyColumn (contentPadding = it) {
-            items(dogs) {
-                DogItem(
-                    dog = it,
-                    modifier = Modifier.padding(dimensionResource(id = R.dimen.padding_small))
-                )
+            items(resultList.sortedByDescending { it.docNumber }) {
+                ResultItem(it)
             }
         }
     }
 }
 
-/**
- * Composable that displays a list item containing a dog icon and their information.
- *
- * @param dog contains the data that populates the list item
- * @param modifier modifiers to set to this composable
- */
+
 @Composable
-fun DogItem(
-    dog: Dog,
-    modifier: Modifier = Modifier
+fun ResultItem(
+    result: EmailData,
+    modifier: Modifier = Modifier.padding(dimensionResource(id = R.dimen.padding_small))
 ) {
     var expanded by remember {
         mutableStateOf(false)
@@ -108,97 +122,83 @@ fun DogItem(
         else MaterialTheme.colorScheme.primaryContainer,
         label = "",
     )
-    Card(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .animateContentSize (
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-                .background(color = color)
-        ) {
-            Row(
+        Card(modifier = modifier) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(dimensionResource(id = R.dimen.padding_small)
+                    .animateContentSize (
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
                     )
-            ) {
-                DogIcon(dog.imageResourceId)
-                DogInformation(dog.name, dog.age)
-                Spacer(modifier = Modifier.weight(1f))
-                ItemButton(
-                    expanded = expanded,
-                    onClick = {expanded = !expanded}
-                )
-            }
-            if (expanded){
-                dogHobby(
-                    dog.hobbies,
-                    modifier = Modifier.padding(
-                        start = dimensionResource(id = R.dimen.padding_medium),
-                        top = dimensionResource(id = R.dimen.padding_small),
-                        end = dimensionResource(id = R.dimen.padding_medium),
-                        bottom = dimensionResource(id = R.dimen.padding_medium)
+                    .background(color = color)
+            )  {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(dimensionResource(id = R.dimen.padding_small)
+                        )
+                ) {
+                    ResultIcon()
+                    Text(
+                        "Декларация: ${result.docNumber}",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
                     )
-                )
+                    Spacer(modifier = Modifier.weight(1f))
+                    ItemButton(
+                        expanded = expanded,
+                        onClick = {expanded = !expanded}
+                    )
+                }
+                if (expanded){
+                    resultInfo(
+                        result,
+                        modifier = Modifier.padding(
+                            start = dimensionResource(id = R.dimen.padding_medium),
+                            top = dimensionResource(id = R.dimen.padding_small),
+                            end = dimensionResource(id = R.dimen.padding_medium),
+                            bottom = dimensionResource(id = R.dimen.padding_medium)
+                        )
+                    )
+                }
+
+
             }
         }
-    }
+
+
 }
 
-/**
- * Composable that displays a photo of a dog.
- *
- * @param dogIcon is the resource ID for the image of the dog
- * @param modifier modifiers to set to this composable
- */
 @Composable
-fun DogIcon(
-    @DrawableRes dogIcon: Int,
-    modifier: Modifier = Modifier
-) {
+fun ResultIcon() {
     Image(
-        modifier = modifier
-            .size(dimensionResource(R.dimen.image_size))
-            .padding(dimensionResource(R.dimen.padding_small))
-            .clip(MaterialTheme.shapes.small),
-        painter = painterResource(dogIcon),
-        contentScale = ContentScale.Crop,
-
-        // Content Description is not needed here - image is decorative, and setting a null content
-        // description allows accessibility services to skip this element during navigation.
-
+        modifier = Modifier
+            .size(dimensionResource(id = R.dimen.image_size))
+            .padding(dimensionResource(id = R.dimen.padding_small)),
+        painter = painterResource(id = R.drawable.bullet_2157465),
         contentDescription = null
     )
 }
 
-/**
- * Composable that displays a dog's name and age.
- *
- * @param dogName is the resource ID for the string of the dog's name
- * @param dogAge is the Int that represents the dog's age
- * @param modifier modifiers to set to this composable
- */
 @Composable
-fun DogInformation(
-    @StringRes dogName: Int,
-    dogAge: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
+fun resultInfo(result: EmailData, modifier: Modifier) {
+    Column (
+        modifier = modifier
+    ) {
         Text(
-            text = stringResource(dogName),
-            style = MaterialTheme.typography.displayMedium,
-            modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
-        )
-        Text(
-            text = stringResource(R.string.years_old, dogAge),
+            text = "Время: ${result.modificationDate}",
             style = MaterialTheme.typography.bodyLarge
         )
+        Text(
+            text = "Сообщение: ${result.comment}",
+            style = MaterialTheme.typography.bodyLarge
+        )
+
+
     }
 }
+
 
 /**
  * Composable that displays what the UI of the app looks like in light theme in the design tab.
@@ -227,13 +227,6 @@ fun OfficeMPTopAppBar(modifier: Modifier = Modifier) {
             Row (
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    modifier = Modifier
-                        .size(dimensionResource(id = R.dimen.image_size))
-                        .padding(dimensionResource(id = R.dimen.padding_small)),
-                    painter = painterResource(id = R.drawable.bullet_2157465),
-                    contentDescription = null
-                )
                 Text(
                     text = stringResource(id = R.string.app_name),
                     style = MaterialTheme.typography.displayLarge
@@ -262,21 +255,4 @@ private fun ItemButton(
         )
     }
 }
-@Composable
-private fun dogHobby(
-    @StringRes dogHobby: Int,
-    modifier: Modifier = Modifier
-) {
-    Column (
-        modifier = modifier
-    ) {
-        Text(
-            text = stringResource(id = R.string.about),
-            style = MaterialTheme.typography.labelSmall
-        )
-        Text(
-            text = stringResource(dogHobby),
-            style = MaterialTheme.typography.bodyLarge
-        )
-    }
-}
+
