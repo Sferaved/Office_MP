@@ -1,6 +1,7 @@
 package com.myapp.office_mp
 
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -139,13 +140,13 @@ fun ResultItem(
                         .padding(dimensionResource(id = R.dimen.padding_small)
                         )
                 ) {
-                    ResultIcon()
+
                     Text(
-                        "Декларация: ${result.docNumber}",
+                        text ="# ${result.comment}",
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
                     )
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(0.5f))
                     ItemButton(
                         expanded = expanded,
                         onClick = {expanded = !expanded}
@@ -191,7 +192,7 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
-            text = "Сообщение: ${result.comment}",
+            text ="Декларация: ${result.docNumber}",
             style = MaterialTheme.typography.bodyLarge
         )
 
@@ -227,6 +228,7 @@ fun OfficeMPTopAppBar(modifier: Modifier = Modifier) {
             Row (
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                ResultIcon()
                 Text(
                     text = stringResource(id = R.string.app_name),
                     style = MaterialTheme.typography.displayLarge
@@ -242,7 +244,7 @@ fun OfficeMPTopAppBar(modifier: Modifier = Modifier) {
 private fun ItemButton(
     expanded: Boolean,
     onClick: ()->Unit,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier.size(dimensionResource(id = R.dimen.image_size))
 ) {
     IconButton(
         onClick = onClick,
@@ -250,7 +252,7 @@ private fun ItemButton(
     ) {
         Icon(
             imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = stringResource(id = R.string.expand_button_content_description),
+            contentDescription = "",
             tint = MaterialTheme.colorScheme.secondary
         )
     }
