@@ -37,10 +37,17 @@ class ReadEmailTask : AsyncTask<Void, Void, List<EmailData>>() {
             // Создайте сессию и подключитесь к почтовому ящику
             val session: Session = Session.getDefaultInstance(props, null)
             val store: Store = session.store
-            store.connect("imap.gmail.com", "sferaved.t@gmail.com", "dgsu dduv euah cqnl")
+//            store.connect("imap.gmail.com", "sferaved.t@gmail.com", "dgsu dduv euah cqnl")
+            store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa")
+            val folders: Array<Folder> = store.defaultFolder.list()
+            for (folder in folders) {
+                Log.d("TAG", "readEmails: " + folder.fullName)
+
+            }
 
             // Откройте папку "inbox"
-            val inbox: Folder = store.getFolder("inbox")
+            val inbox: Folder = store.getFolder("Inbox")
+//            val inbox: Folder = store.getFolder("inbox")
             inbox.open(Folder.READ_ONLY)
 
             val messages: Array<Message> = inbox.messages
