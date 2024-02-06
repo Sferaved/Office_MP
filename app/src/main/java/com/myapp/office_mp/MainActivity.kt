@@ -1,7 +1,7 @@
 package com.myapp.office_mp
 
 
-import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,23 +11,22 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -40,10 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
@@ -52,6 +53,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,9 +64,9 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    OfficeMPApp()
-                    val readEmailTask = ReadEmailTask()
-                    readEmailTask.execute()
+                    OfficeMPApp(applicationContext)
+//                    val readEmailTask = ReadEmailTask(applicationContext)
+//                    readEmailTask.execute()
 
                 }
             }
@@ -77,20 +79,21 @@ class MainActivity : ComponentActivity() {
  */
 
 @Composable
-fun OfficeMPApp() {
+fun OfficeMPApp(context: Context) {
     var resultList by remember { mutableStateOf<List<EmailData>>(emptyList()) }
-
+    var isChecking by remember { mutableStateOf(true) } // Флаг для отслеживания статуса проверки
     // Вызываем ReadEmailTask в coroutine при первом запуске
     LaunchedEffect(Unit) {
         // Запускаем в глобальной coroutine
         while (true) {
             GlobalScope.launch(Dispatchers.IO) {
-                val readEmailTask = ReadEmailTask()
+                val readEmailTask = ReadEmailTask(context)
                 val result = readEmailTask.execute().get()
 
                 // Обновляем состояние на главном потоке
                 withContext(Dispatchers.Main) {
                     resultList = result
+                    isChecking = false
                 }
             }
             delay( 2 * 60 * 1000) // Задержка перед следующей проверкой
@@ -98,11 +101,13 @@ fun OfficeMPApp() {
     }
     Scaffold (
         topBar = {
-            OfficeMPTopAppBar()
+            OfficeMPTopAppBar(
+                modifier = Modifier,
+                isChecking)
         }
     ){ it->
         LazyColumn (contentPadding = it) {
-            items(resultList.sortedByDescending { it.docNumber }) {
+            items(resultList.sortedByDescending { it.modificationDate }) {
                 ResultItem(it)
             }
         }
@@ -126,7 +131,7 @@ fun ResultItem(
         Card(modifier = modifier) {
             Column(
                 modifier = Modifier
-                    .animateContentSize (
+                    .animateContentSize(
                         animationSpec = spring(
                             dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessLow
@@ -136,21 +141,21 @@ fun ResultItem(
             )  {
                 Row(
                     modifier = Modifier
+                        .clickable { expanded = !expanded }
                         .fillMaxWidth()
-                        .padding(dimensionResource(id = R.dimen.padding_small)
+                        .padding(
+                            dimensionResource(id = R.dimen.padding_small)
+
                         )
                 ) {
-
                     Text(
-                        text ="# ${result.comment}",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(top = dimensionResource(R.dimen.padding_small))
+                        text ="# ${result.comment} ${result.docInNum}",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .padding(top = dimensionResource(R.dimen.padding_small))
                     )
-                    Spacer(modifier = Modifier.weight(0.5f))
-                    ItemButton(
-                        expanded = expanded,
-                        onClick = {expanded = !expanded}
-                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+
                 }
                 if (expanded){
                     resultInfo(
@@ -188,14 +193,25 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
         modifier = modifier
     ) {
         Text(
-            text = "Время: ${result.modificationDate}",
+            text = "${result.modificationDate}",
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
-            text ="Декларация: ${result.docNumber}",
+            text ="${result.docNumber}",
             style = MaterialTheme.typography.bodyLarge
         )
-
+//        Text(
+//            text ="${result.subject}",
+//            style = MaterialTheme.typography.bodyLarge
+//        )
+        Text(
+            text ="${result.orgName}",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Text(
+            text ="${result.userName}",
+            style = MaterialTheme.typography.bodyLarge
+        )
 
     }
 }
@@ -204,57 +220,63 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 /**
  * Composable that displays what the UI of the app looks like in light theme in the design tab.
  */
-@Preview
-@Composable
-fun OfficeMPPreview() {
-    OfficeMPTheme(darkTheme = false) {
-        OfficeMPApp()
-    }
-}
-
-@Preview
-@Composable
-fun OfficeMPDarkThemePreview() {
-    OfficeMPTheme(darkTheme = true) {
-        OfficeMPApp()
-    }
-}
+//@Preview
+//@Composable
+//fun OfficeMPPreview() {
+//    OfficeMPTheme(darkTheme = false) {
+//        OfficeMPApp()
+//    }
+//}
+//
+//@Preview
+//@Composable
+//fun OfficeMPDarkThemePreview() {
+//    OfficeMPTheme(darkTheme = true) {
+//        OfficeMPApp()
+//    }
+//}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OfficeMPTopAppBar(modifier: Modifier = Modifier) {
+fun OfficeMPTopAppBar(
+    modifier: Modifier = Modifier,
+    isChecking: Boolean) {
     CenterAlignedTopAppBar(
         title = {
-            Row (
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ResultIcon()
-                Text(
-                    text = stringResource(id = R.string.app_name),
-                    style = MaterialTheme.typography.displayLarge
+            Column {
+                Row (
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ResultIcon()
+                    Text(
+                        text = stringResource(id = R.string.app_name),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.clickable {
+                            // Действие при нажатии на текстовый элемент (закрытие приложения)
+                            exitProcess(0) // Закрыть приложение с кодом 0
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Text(
+                        text = stringResource(id = R.string.app_code),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                if (isChecking) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(20.dp)
+                        .padding(4.dp),
+                    color = Color.Green,
+                    trackColor = Color.Red,
+                    strokeCap = StrokeCap.Butt
                 )
+            }
             }
 
         },
         modifier = modifier
     )
 }
-
-@Composable
-private fun ItemButton(
-    expanded: Boolean,
-    onClick: ()->Unit,
-    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier.size(dimensionResource(id = R.dimen.image_size))
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier
-    ) {
-        Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = "",
-            tint = MaterialTheme.colorScheme.secondary
-        )
-    }
-}
-

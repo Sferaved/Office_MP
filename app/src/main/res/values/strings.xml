@@ -15,4 +15,5 @@
   -->
 <resources>
     <string name="app_name">Office MP</string>
+    <string name="app_code">1.006</string>
 </resources>
