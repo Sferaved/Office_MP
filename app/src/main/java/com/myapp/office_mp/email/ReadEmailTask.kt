@@ -93,7 +93,7 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
                                     var entry: ZipArchiveEntry? = zipInputStream.nextZipEntry
 
                                     while (entry != null) {
-                                        if (entry.name.endsWith("doc1.xml")) { // Проверяем, что файл имеет расширение .xml
+                                       // Проверяем, что файл имеет расширение .xml
                                             Log.d("TAG_imfx", "readEmails: ${entry.name}")
 
                                             // Создаем ByteArrayOutputStream для записи содержимого файла
@@ -111,38 +111,32 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
 
                                             // Теперь у нас есть объект типа InputStream (byteArrayInputStream), содержащий содержимое текущего файла entry
                                             // Передаем его в функцию doc1Parsing только если файл имеет тип XML
-
-                                             doc1Parsing(byteArrayInputStream, resultList, message.subject)
-                                            // Закрываем byteArrayInputStream после обработки содержимого файла
-                                            byteArrayInputStream.close()
-                                        } else
-
-                                        if (entry.name.endsWith("doc2.xml")) { // Проверяем, что файл имеет расширение .xml
-                                            Log.d("TAG_imfx", "readEmails: ${entry.name}")
-
-                                            // Создаем ByteArrayOutputStream для записи содержимого файла
-                                            val byteArrayOutputStream = ByteArrayOutputStream()
-                                            var bytesRead: Int
-                                            val buffer = ByteArray(1024)
-
-                                            // Читаем содержимое файла entry в ByteArrayOutputStream
-                                            while (zipInputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                byteArrayOutputStream.write(buffer, 0, bytesRead)
+                                            if (entry.name.endsWith("doc1.xml")) {
+                                                doc1Parsing(
+                                                    byteArrayInputStream,
+                                                    resultList,
+                                                    message.subject
+                                                )
                                             }
-
-                                            // Создаем ByteArrayInputStream на основе данных из ByteArrayOutputStream
-                                            val byteArrayInputStream = ByteArrayInputStream(byteArrayOutputStream.toByteArray())
-                                             doc2Parsing(byteArrayInputStream, resultList, message.subject)
+                                            if (entry.name.endsWith("doc2.xml")) { // Проверяем, что файл имеет расширение .xml
+                                                doc2Parsing(
+                                                    byteArrayInputStream,
+                                                    resultList,
+                                                    message.subject)
+                                            }
+                                            if (entry.name.endsWith("doclist.xml")) { // Проверяем, что файл имеет расширение .xml
+                                                docListParsing(
+                                                    byteArrayInputStream,
+                                                    resultList,
+                                                    message.subject)
+                                            }
                                             // Закрываем byteArrayInputStream после обработки содержимого файла
                                             byteArrayInputStream.close()
-                                        }
-
-                                        // Переходим к следующему файлу в архиве
+                                   // Переходим к следующему файлу в архиве
                                         entry = zipInputStream.nextZipEntry
                                     }
 
 
-// Закрываем zipInputStream, когда он больше не нужен
                                     zipInputStream.close()
 
                                 }
@@ -255,40 +249,92 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
             with(doc) {
                 var currentEmailData: EmailData? = null
                 var docNumber = ""
+                var modificationDate = ""
+                var comment = ""
+                var orgName = ""
+                var userName = ""
+                var docInNum = ""
+
                 getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
                     docNumber = it.item(0).textContent
-
                 }
 
+                    getElementsByTagName("ccd_registered").takeIf { it.length > 0 }?.let {
+                        modificationDate = it.item(0).textContent
+
+                    }
+                    getElementsByTagName("ccd_trn_name").takeIf { it.length > 0 }?.let {
+                        comment = it.item(0).textContent
+                    }
+                    getElementsByTagName("ccd_01_01").takeIf { it.length > 0 }?.let {
+                        comment += " -> " + it.item(0).textContent
+                    }
+                    getElementsByTagName("OrgName").takeIf { it.length > 0 }?.let {
+                        orgName = it.item(0).textContent
+                    }
+                    getElementsByTagName("ccd_cl_name").takeIf { it.length > 0 }?.let {
+                        userName = it.item(0).textContent
+                    }
+
+                    getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
+                        docInNum = it.item(0).textContent
+                    }
+
+
+
+                currentEmailData = EmailData(
+                    docNumber = docNumber,
+                    modificationDate = formatModificationDate(modificationDate),
+                    comment = comment,
+                    subject = subject,
+                    orgName = orgName,
+                    userName = userName,
+                    docInNum = docInNum,
+                )
+
+                addValueToResultList(resultList, currentEmailData)
+
+            }
+        }
+    }
+    private fun docListParsing(
+            zipInputStream: InputStream?,
+            resultList: MutableList<EmailData>,
+            subject: String
+        ) {
+        zipInputStream?.use { inputStream ->
+            val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance()
+            val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder()
+            val doc: Document = dBuilder.parse(inputStream)
+
+            // Найти и вывести значения нужных тегов
+            with(doc) {
+                var currentEmailData: EmailData? = null
+                var docNumber = ""
                 var modificationDate = ""
-                getElementsByTagName("ccd_registered").takeIf { it.length > 0 }?.let {
+                var comment = ""
+                var orgName = ""
+                var userName = ""
+                var docInNum = ""
+
+                getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
+                    docNumber = it.item(0).textContent
+                }
+                getElementsByTagName("DocNumber").takeIf { it.length > 0 }?.let {
+                    docNumber = it.item(0).textContent
+                }
+                getElementsByTagName("CreationDate").takeIf { it.length > 0 }?.let {
                     modificationDate = it.item(0).textContent
 
                 }
-
-                var comment = ""
-                getElementsByTagName("ccd_trn_name").takeIf { it.length > 0 }?.let {
+                getElementsByTagName("Comment").takeIf { it.length > 0 }?.let {
                     comment = it.item(0).textContent
                 }
                 getElementsByTagName("ccd_01_01").takeIf { it.length > 0 }?.let {
                     comment += " -> " + it.item(0).textContent
                 }
-
-
-
-                var orgName = ""
-                getElementsByTagName("OrgName").takeIf { it.length > 0 }?.let {
+                getElementsByTagName("SenderName").takeIf { it.length > 0 }?.let {
                     orgName = it.item(0).textContent
-                }
-
-                var userName = ""
-                getElementsByTagName("ccd_cl_name").takeIf { it.length > 0 }?.let {
-                    userName = it.item(0).textContent
-                }
-
-                var docInNum = ""
-                getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
-                    docInNum = it.item(0).textContent
                 }
 
                 currentEmailData = EmailData(
