@@ -19,6 +19,7 @@ import java.util.*
 import javax.activation.DataHandler
 import javax.activation.FileDataSource
 import javax.mail.BodyPart
+import javax.mail.Flags
 import javax.mail.Folder
 import javax.mail.Message
 import javax.mail.MessagingException
@@ -35,7 +36,10 @@ import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
 
 
-class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<EmailData>>() {
+class ReadEmailTask(
+    private val context: Context,
+    private val accessCode: String
+) : AsyncTask<Void, Void, List<EmailData>>() {
 
     override fun doInBackground(vararg voids: Void): List<EmailData> {
         return readEmails(context)
@@ -51,26 +55,25 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
             // Создайте сессию и подключитесь к почтовому ящику
             val session: Session = Session.getDefaultInstance(props, null)
             val store: Store = session.store
-//            store.connect("imap.gmail.com", "sferaved.t@gmail.com", "dgsu dduv euah cqnl")
-            store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
-//            store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
-            val folders: Array<Folder> = store.defaultFolder.list()
-            for (folder in folders) {
-                Log.d("TAG", "readEmails: " + folder.fullName)
 
+            when (this.accessCode) {
+                "123" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+                "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
             }
 
-            // Откройте папку "inbox"
+//            // Откройте папку "inbox"
             val inbox: Folder = store.getFolder("Inbox")
-//            val inbox: Folder = store.getFolder("inbox")
+
             inbox.open(Folder.READ_ONLY)
 
             val messages: Array<Message> = inbox.messages
+            val unreadMessages = messages.filter { !it.isSet(Flags.Flag.SEEN) }
 
             // Обработайте сообщения
-            for (message in messages) {
+            for (message in unreadMessages) {
                 // Проверка на Subject: CBMSG1
                 if (message.subject != null && message.subject.contains("CBMS")) {
+//                if (message.subject != null) {
                     // Вывести в лог различные поля сообщения
                     Log.d("EmailReader", "Subject: ${message.subject}")
                     Log.d("EmailReader", "From: ${message.from?.contentToString()}")
@@ -96,42 +99,33 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
                                        // Проверяем, что файл имеет расширение .xml
                                             Log.d("TAG_imfx", "readEmails: ${entry.name}")
 
-                                            // Создаем ByteArrayOutputStream для записи содержимого файла
-                                            val byteArrayOutputStream = ByteArrayOutputStream()
-                                            var bytesRead: Int
-                                            val buffer = ByteArray(1024)
-
-                                            // Читаем содержимое файла entry в ByteArrayOutputStream
-                                            while (zipInputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                byteArrayOutputStream.write(buffer, 0, bytesRead)
-                                            }
-
-                                            // Создаем ByteArrayInputStream на основе данных из ByteArrayOutputStream
-                                            val byteArrayInputStream = ByteArrayInputStream(byteArrayOutputStream.toByteArray())
-
-                                            // Теперь у нас есть объект типа InputStream (byteArrayInputStream), содержащий содержимое текущего файла entry
-                                            // Передаем его в функцию doc1Parsing только если файл имеет тип XML
                                             if (entry.name.endsWith("doc1.xml")) {
+                                                val byteArrayInputStream = streamFile (zipInputStream)
                                                 doc1Parsing(
                                                     byteArrayInputStream,
                                                     resultList,
                                                     message.subject
                                                 )
+                                                byteArrayInputStream.close()
                                             }
                                             if (entry.name.endsWith("doc2.xml")) { // Проверяем, что файл имеет расширение .xml
+                                                val byteArrayInputStream = streamFile (zipInputStream)
                                                 doc2Parsing(
                                                     byteArrayInputStream,
                                                     resultList,
                                                     message.subject)
+                                                byteArrayInputStream.close()
                                             }
                                             if (entry.name.endsWith("doclist.xml")) { // Проверяем, что файл имеет расширение .xml
+                                                val byteArrayInputStream = streamFile (zipInputStream)
                                                 docListParsing(
                                                     byteArrayInputStream,
                                                     resultList,
                                                     message.subject)
+                                                byteArrayInputStream.close()
                                             }
                                             // Закрываем byteArrayInputStream после обработки содержимого файла
-                                            byteArrayInputStream.close()
+
                                    // Переходим к следующему файлу в архиве
                                         entry = zipInputStream.nextZipEntry
                                     }
@@ -162,6 +156,7 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
 
         return resultList
     }
+
 
     private fun doc1Parsing(
         zipInputStream: InputStream?,
@@ -229,7 +224,7 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
                     docInNum = docInNum,
                 )
 
-                if (!comment_code.equals("0")) {
+                if (comment_code != "0" && docNumber != "") {
                     addValueToResultList(resultList, currentEmailData)
                 }
             }
@@ -346,14 +341,30 @@ class ReadEmailTask(private val context: Context) : AsyncTask<Void, Void, List<E
                     userName = userName,
                     docInNum = docInNum,
                 )
+                if(comment != "Підтвердження про отримання електронного повідомлення"
+                    && comment != "Протокол обробки електронного документа") {
+                    addValueToResultList(resultList, currentEmailData)
+                }
 
-                addValueToResultList(resultList, currentEmailData)
 
             }
         }
     }
 
+    private fun streamFile (
+        zipInputStream: ZipArchiveInputStream
+    ): ByteArrayInputStream {
+        // Создаем ByteArrayOutputStream для записи содержимого файла
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        var bytesRead: Int
+        val buffer = ByteArray(1024)
 
+        // Читаем содержимое файла entry в ByteArrayOutputStream
+        while (zipInputStream.read(buffer).also { bytesRead = it } != -1) {
+            byteArrayOutputStream.write(buffer, 0, bytesRead)
+        }
+        return  ByteArrayInputStream(byteArrayOutputStream.toByteArray())
+    }
     fun sendEmailWithAttachment(attachmentFile: File) {
         try {
         val props = Properties()

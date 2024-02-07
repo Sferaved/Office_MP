@@ -3,6 +3,8 @@ package com.myapp.office_mp
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.animateColorAsState
@@ -23,6 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,14 +53,22 @@ import androidx.compose.ui.unit.dp
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
+import com.myapp.office_mp.utils.DatabaseHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Properties
+import javax.mail.Flags
+import javax.mail.Folder
+import javax.mail.Message
+import javax.mail.Session
+import javax.mail.Store
 import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
+    private lateinit var dbHelper: DatabaseHelper
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -65,9 +78,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     OfficeMPApp(applicationContext)
-//                    val readEmailTask = ReadEmailTask(applicationContext)
-//                    readEmailTask.execute()
-
                 }
             }
         }
@@ -82,36 +92,97 @@ class MainActivity : ComponentActivity() {
 fun OfficeMPApp(context: Context) {
     var resultList by remember { mutableStateOf<List<EmailData>>(emptyList()) }
     var isChecking by remember { mutableStateOf(true) } // Флаг для отслеживания статуса проверки
-    // Вызываем ReadEmailTask в coroutine при первом запуске
-    LaunchedEffect(Unit) {
-        // Запускаем в глобальной coroutine
-        while (true) {
-            GlobalScope.launch(Dispatchers.IO) {
-                val readEmailTask = ReadEmailTask(context)
-                val result = readEmailTask.execute().get()
+// В вашем коде OfficeMPApp
+    val (showDialog, setShowDialog) = remember { mutableStateOf(true) }
+    var isAccessCodeValid by remember { mutableStateOf(false) }
+    var accessCode by remember { mutableStateOf<String>("") }
 
-                // Обновляем состояние на главном потоке
-                withContext(Dispatchers.Main) {
-                    resultList = result
-                    isChecking = false
+    if (showDialog) {
+        AccessCodeDialog(
+            onSubmit = { inputAccessCode ->
+                if (inputAccessCode == "123" || inputAccessCode == "321" ) {
+                    isAccessCodeValid = true
+                    accessCode = inputAccessCode;
+                    setShowDialog(false)
+                } else {
+                    Toast.makeText(context, "Неверный код доступа", Toast.LENGTH_SHORT).show()
                 }
+            },
+            onDismiss = { exitProcess(0) }
+        )
+    } else if (isAccessCodeValid) {
+        // Запускаем проверку почты или что-то еще, что нужно выполнить после успешного ввода кода доступа
+        LaunchedEffect(Unit) {
+            // Запускаем в глобальной coroutine
+            while (true) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    val readEmailTask = ReadEmailTask(context, accessCode)
+                    val result = readEmailTask.execute().get()
+
+                    // Обновляем состояние на главном потоке
+                    withContext(Dispatchers.Main) {
+                        resultList = result
+                        isChecking = false
+                    }
+                }
+                delay( 2 * 60 * 1000) // Задержка перед следующей проверкой
             }
-            delay( 2 * 60 * 1000) // Задержка перед следующей проверкой
         }
     }
+
+
+
+    // Вызываем ReadEmailTask в coroutine при первом запуске
+
     Scaffold (
         topBar = {
             OfficeMPTopAppBar(
                 modifier = Modifier,
-                isChecking)
+                isChecking
+            )
         }
     ){ it->
-        LazyColumn (contentPadding = it) {
-            items(resultList.sortedByDescending { it.modificationDate }) {
-                ResultItem(it)
+        if(resultList.isNotEmpty()) {
+            LazyColumn (contentPadding = it) {
+                items(resultList.sortedByDescending { it.modificationDate }) {
+                    ResultItem(it)
+                }
+            }
+        } else if (!isChecking){
+            val message = "Нет новых сообщений"
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        } else {
+            val message = "Поиск новых сообщений ..."
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+
+    }
+}
+@Composable
+fun AccessCodeDialog(onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
+    var accessCode by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Введите код доступа") },
+        text = {
+            TextField(
+                value = accessCode,
+                onValueChange = { accessCode = it },
+                label = { Text("Код доступа") }
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onSubmit(accessCode) }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Отмена")
             }
         }
-    }
+    )
 }
 
 
@@ -181,7 +252,11 @@ fun ResultIcon() {
     Image(
         modifier = Modifier
             .size(dimensionResource(id = R.dimen.image_size))
-            .padding(dimensionResource(id = R.dimen.padding_small)),
+            .padding(dimensionResource(id = R.dimen.padding_small))
+            .clickable {
+                // Действие при нажатии на текстовый элемент (закрытие приложения)
+                exitProcess(0) // Закрыть приложение с кодом 0
+            },
         painter = painterResource(id = R.drawable.bullet_2157465),
         contentDescription = null
     )
@@ -240,7 +315,8 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 @Composable
 fun OfficeMPTopAppBar(
     modifier: Modifier = Modifier,
-    isChecking: Boolean) {
+    isChecking: Boolean
+) {
     CenterAlignedTopAppBar(
         title = {
             Column {
@@ -248,15 +324,18 @@ fun OfficeMPTopAppBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ResultIcon()
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = stringResource(id = R.string.app_name),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.displayMedium,
                         modifier = Modifier.clickable {
                             // Действие при нажатии на текстовый элемент (закрытие приложения)
-                            exitProcess(0) // Закрыть приложение с кодом 0
+                            Thread {
+                                unreadEmails()
+                            }.start()
                         }
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     Text(
                         text = stringResource(id = R.string.app_code),
@@ -279,4 +358,39 @@ fun OfficeMPTopAppBar(
         },
         modifier = modifier
     )
+}
+
+
+fun unreadEmails() {
+    try {
+        // Настройте свойства для подключения
+        val props = Properties()
+        props.setProperty("mail.store.protocol", "imaps")
+
+        // Создайте сессию и подключитесь к почтовому ящику
+        val session: Session = Session.getDefaultInstance(props, null)
+        val store: Store = session.store
+        store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") // Ваш логин и пароль
+
+        // Откройте папку "inbox" для чтения и записи
+        val inbox: Folder = store.getFolder("Inbox")
+        inbox.open(Folder.READ_WRITE)
+
+        // Получите все сообщения в папке "inbox"
+        val messages: Array<Message> = inbox.messages
+
+        // Отметьте каждое сообщение как прочитанное
+        for (message in messages) {
+//            message.setFlag(Flags.Flag.SEEN, true)
+            message.setFlag(Flags.Flag.DELETED, true)
+        }
+        inbox.expunge()
+        // Закройте папку и соединение
+        inbox.close(false)
+        store.close()
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Log.d("EmailReader+", "Error: $e")
+    }
 }
