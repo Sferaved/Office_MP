@@ -95,7 +95,7 @@ fun OfficeMPApp(context: Context) {
 // В вашем коде OfficeMPApp
     val (showDialog, setShowDialog) = remember { mutableStateOf(true) }
     var isAccessCodeValid by remember { mutableStateOf(false) }
-    var accessCode by remember { mutableStateOf<String>("") }
+    var accessCode by remember { mutableStateOf("") }
 
     if (showDialog) {
         AccessCodeDialog(
@@ -138,7 +138,8 @@ fun OfficeMPApp(context: Context) {
         topBar = {
             OfficeMPTopAppBar(
                 modifier = Modifier,
-                isChecking
+                isChecking,
+                accessCode
             )
         }
     ){ it->
@@ -315,7 +316,8 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 @Composable
 fun OfficeMPTopAppBar(
     modifier: Modifier = Modifier,
-    isChecking: Boolean
+    isChecking: Boolean,
+    accessCode: String
 ) {
     CenterAlignedTopAppBar(
         title = {
@@ -331,7 +333,7 @@ fun OfficeMPTopAppBar(
                         modifier = Modifier.clickable {
                             // Действие при нажатии на текстовый элемент (закрытие приложения)
                             Thread {
-                                unreadEmails()
+                                unreadEmails(accessCode)
                             }.start()
                         }
                     )
@@ -361,7 +363,9 @@ fun OfficeMPTopAppBar(
 }
 
 
-fun unreadEmails() {
+fun unreadEmails(
+    accessCode:String
+) {
     try {
         // Настройте свойства для подключения
         val props = Properties()
@@ -370,7 +374,10 @@ fun unreadEmails() {
         // Создайте сессию и подключитесь к почтовому ящику
         val session: Session = Session.getDefaultInstance(props, null)
         val store: Store = session.store
-        store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") // Ваш логин и пароль
+        when (accessCode) {
+            "123" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+            "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
+        }
 
         // Откройте папку "inbox" для чтения и записи
         val inbox: Folder = store.getFolder("Inbox")
