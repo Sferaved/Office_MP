@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 
 class SharedViewModel : ViewModel() {
     private val passwordMap = mapOf(
-        "123" to "Таня",
+        "777" to "Таня",
         "321" to "Мария"
     )
 

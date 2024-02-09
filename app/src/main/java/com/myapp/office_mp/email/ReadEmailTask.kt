@@ -57,8 +57,9 @@ class ReadEmailTask(
             val store: Store = session.store
 
             when (this.accessCode) {
-                "123" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+                "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
                 "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
+                "456" -> store.connect("imap.ukr.net", "sferved.n@ukr.net", "zyiYFd7LigTv2vyB") //Наташа
             }
 
 //            // Откройте папку "inbox"
@@ -212,6 +213,36 @@ class ReadEmailTask(
                 getElementsByTagName("ccd_54_02").takeIf { it.length > 0 }?.let {
                     MRN = it.item(0).textContent
                 }
+                var ccd_21_01 = ""
+                getElementsByTagName("ccd_21_01").takeIf { it.length > 0 }?.let {
+                    ccd_21_01 = it.item(0).textContent
+                }
+
+                if(ccd_21_01 != "") {
+                    getElementsByTagName("ccd_29_02").takeIf { it.length > 0 }?.let {
+                        modificationDate = it.item(0).textContent
+                    }
+                    var ccd_21_01 =""
+                    getElementsByTagName("ccd_21_01").takeIf { it.length > 0 }?.let {
+                        ccd_21_01 = it.item(0).textContent
+                    }
+                    comment = "Выехала 🚚 $ccd_21_01"
+                    var ccd_07_01 =""
+                    getElementsByTagName("ccd_07_01").takeIf { it.length > 0 }?.let {
+                        ccd_07_01 = it.item(0).textContent
+                    }
+                    var ccd_07_02 =""
+                    getElementsByTagName("ccd_07_02").takeIf { it.length > 0 }?.let {
+                        ccd_07_02 = it.item(0).textContent
+                    }
+                    var ccd_07_03 =""
+                    getElementsByTagName("ccd_07_03").takeIf { it.length > 0 }?.let {
+                        ccd_07_03 = it.item(0).textContent
+                    }
+                    ccd_07_03 = ccd_07_03.padStart(6, '0')
+                    docNumber = "Декларация: $ccd_07_01.$ccd_07_02.$ccd_07_03"
+                }
+
 
                 Log.d("EmailReader_Cont", "doc1Parsing:MRN $MRN")
                 currentEmailData = EmailData(
@@ -225,6 +256,9 @@ class ReadEmailTask(
                 )
 
                 if (comment_code != "0" && docNumber != "") {
+                    addValueToResultList(resultList, currentEmailData)
+                }
+                if (ccd_21_01 != "") {
                     addValueToResultList(resultList, currentEmailData)
                 }
             }
@@ -249,31 +283,40 @@ class ReadEmailTask(
                 var orgName = ""
                 var userName = ""
                 var docInNum = ""
+                var phoneNumber = ""
 
                 getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
                     docNumber = it.item(0).textContent
                 }
 
-                    getElementsByTagName("ccd_registered").takeIf { it.length > 0 }?.let {
-                        modificationDate = it.item(0).textContent
+                getElementsByTagName("ccd_registered").takeIf { it.length > 0 }?.let {
+                    modificationDate = it.item(0).textContent
 
-                    }
-                    getElementsByTagName("ccd_trn_name").takeIf { it.length > 0 }?.let {
-                        comment = it.item(0).textContent
-                    }
-                    getElementsByTagName("ccd_01_01").takeIf { it.length > 0 }?.let {
-                        comment += " -> " + it.item(0).textContent
-                    }
-                    getElementsByTagName("OrgName").takeIf { it.length > 0 }?.let {
-                        orgName = it.item(0).textContent
-                    }
-                    getElementsByTagName("ccd_cl_name").takeIf { it.length > 0 }?.let {
-                        userName = it.item(0).textContent
-                    }
+                }
+                getElementsByTagName("ccd_trn_name").takeIf { it.length > 0 }?.let {
+                    comment = "🚚 " + it.item(0).textContent
 
-                    getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
-                        docInNum = it.item(0).textContent
-                    }
+                }
+                getElementsByTagName("ccd_01_01").takeIf { it.length > 0 }?.let {
+                    comment += " -> " + it.item(0).textContent
+                }
+                getElementsByTagName("OrgName").takeIf { it.length > 0 }?.let {
+                    orgName = it.item(0).textContent
+                }
+                getElementsByTagName("ccd_cl_name").takeIf { it.length > 0 }?.let {
+                    userName = it.item(0).textContent
+                }
+
+                getElementsByTagName("MRN").takeIf { it.length > 0 }?.let {
+                    docInNum = it.item(0).textContent
+                }
+
+
+                getElementsByTagName("ccd_cl_tel").takeIf { it.length > 0 }?.let {
+                    phoneNumber = it.item(0).textContent
+                }
+
+                orgName = phoneNumber ?: "" // Присваиваем значение phoneNumber переменной orgName, если phoneNumber не равен null, иначе пустую строку
 
 
 
@@ -342,7 +385,8 @@ class ReadEmailTask(
                     docInNum = docInNum,
                 )
                 if(comment != "Підтвердження про отримання електронного повідомлення"
-                    && comment != "Протокол обробки електронного документа") {
+                    && comment != "Протокол обробки електронного документа"
+                    && comment != "Повідомлення про фактичне вивезення") {
                     addValueToResultList(resultList, currentEmailData)
                 }
 

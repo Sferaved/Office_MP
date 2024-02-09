@@ -1,8 +1,15 @@
+@file:Suppress("UNUSED_EXPRESSION")
+
 package com.myapp.office_mp
 
 
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -14,6 +21,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,14 +55,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
-import com.myapp.office_mp.utils.DatabaseHelper
+import com.myapp.office_mp.utils.MyScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -68,9 +82,9 @@ import javax.mail.Store
 import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
-    private lateinit var dbHelper: DatabaseHelper
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if(!isNotificationEnabled(this))openNotificationSettings(this)
         setContent {
             OfficeMPTheme {
                 // A surface container using the 'background' color from the theme
@@ -81,6 +95,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        val scheduler = MyScheduler()
+        scheduler.scheduleTask(this)
     }
 }
 
@@ -100,7 +116,7 @@ fun OfficeMPApp(context: Context) {
     if (showDialog) {
         AccessCodeDialog(
             onSubmit = { inputAccessCode ->
-                if (inputAccessCode == "123" || inputAccessCode == "321" ) {
+                if (inputAccessCode == "777" || inputAccessCode == "321"  || inputAccessCode == "456" ) {
                     isAccessCodeValid = true
                     accessCode = inputAccessCode;
                     setShowDialog(false)
@@ -268,6 +284,8 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
     Column (
         modifier = modifier
     ) {
+
+
         Text(
             text = "${result.modificationDate}",
             style = MaterialTheme.typography.bodyLarge
@@ -280,10 +298,65 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 //            text ="${result.subject}",
 //            style = MaterialTheme.typography.bodyLarge
 //        )
-        Text(
-            text ="${result.orgName}",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        val telRegex = Regex("""\b(?:\+?3?8)?\s?\(?(?:0\d{2})\)?[-.\s]?\d{3}[-.\s]?\d{2}[-.\s]?\d{2}\b""")
+        val annotatedString = buildAnnotatedString {
+            append(result.orgName)
+            val telMatches = telRegex.findAll(result.orgName)
+            telMatches.forEach { matchResult ->
+                val startIndex = matchResult.range.first
+                val endIndex = matchResult.range.last + 1
+                addStyle(
+                    SpanStyle(textDecoration = TextDecoration.Underline),
+                    startIndex,
+                    endIndex
+                )
+                addStringAnnotation(
+                    "PhoneNumber",
+                    matchResult.value,
+                    startIndex,
+                    endIndex
+                )
+            }
+        }
+
+        val context = LocalContext.current
+        val isDarkTheme = isSystemInDarkTheme()
+
+        val textColor = if (isDarkTheme) {
+            Color.White // Цвет текста для темной темы
+        } else {
+            Color.Black // Цвет текста для светлой темы
+        }
+
+        val style = MaterialTheme.typography.labelLarge.copy(color = textColor)
+
+        val hasPhoneNumber = annotatedString.getStringAnnotations("PhoneNumber", 0, annotatedString.length).isNotEmpty()
+
+        val clickableText = if (hasPhoneNumber) {
+            ClickableText(
+                text = buildAnnotatedString {
+                    append("📞 ") // Добавляем эмодзи перед текстом
+                    append(annotatedString) // Добавляем аннотированный текст
+                },
+                onClick = { offset ->
+                    annotatedString.getStringAnnotations("PhoneNumber", offset, offset)
+                        .firstOrNull()?.let { phoneNumber ->
+                            val uri = Uri.parse("tel:${phoneNumber.item}")
+                            val intent = Intent(Intent.ACTION_DIAL, uri)
+                            context.startActivity(intent)
+                        }
+                },
+                style = style
+            )
+        } else {
+            Text(
+                text = annotatedString,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+
+        clickableText
+
         Text(
             text ="${result.userName}",
             style = MaterialTheme.typography.bodyLarge
@@ -291,6 +364,9 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 
     }
 }
+
+
+
 
 
 /**
@@ -375,8 +451,9 @@ fun unreadEmails(
         val session: Session = Session.getDefaultInstance(props, null)
         val store: Store = session.store
         when (accessCode) {
-            "123" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+            "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
             "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
+            "456" -> store.connect("imap.ukr.net", "sferved.n@ukr.net", "zyiYFd7LigTv2vyB") //Наташа
         }
 
         // Откройте папку "inbox" для чтения и записи
@@ -400,4 +477,28 @@ fun unreadEmails(
         e.printStackTrace()
         Log.d("EmailReader+", "Error: $e")
     }
+}
+
+fun isNotificationEnabled(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.areNotificationsEnabled()
+    } else {
+        // Для Android до версии O нет прямого способа проверки разрешений на уведомления
+        // Однако мы можем проверить, включено ли разрешение на уведомления через системные настройки
+        NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+}
+
+fun openNotificationSettings(context: Context) {
+    val intent = Intent()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        intent.action = Settings.ACTION_APP_NOTIFICATION_SETTINGS
+        intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    } else {
+        intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+        intent.data = Uri.fromParts("package", context.packageName, null)
+    }
+    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    context.startActivity(intent)
 }
