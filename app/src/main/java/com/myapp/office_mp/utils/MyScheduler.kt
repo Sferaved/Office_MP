@@ -5,7 +5,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import java.util.Calendar
 
 class MyScheduler {
@@ -35,12 +34,33 @@ class MyScheduler {
         // Установка будильника на время из calendar
         val triggerAtMillis = calendar.timeInMillis
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+        alarmManager.set(
+            AlarmManager.RTC_WAKEUP,
+            triggerAtMillis,
+            pendingIntent
+        )
+    }
+    fun getAlarmTime(context: Context): Pair<Int, Int>? {
+        val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val hour = sharedPref.getInt("hour", -1)
+        val minute = sharedPref.getInt("minute", -1)
+        if (hour != -1 && minute != -1) {
+            return Pair(hour, minute)
         }
+        return null
+    }
+    fun scheduleTask(context: Context, calendar: Calendar) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, MyBroadcastReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE)
+
+        val triggerAtMillis = calendar.timeInMillis
+
+        alarmManager.set(
+            AlarmManager.RTC_WAKEUP,
+            triggerAtMillis,
+            pendingIntent
+        )
     }
 }

@@ -102,6 +102,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if(!isNotificationEnabled(this))openNotificationSettings(this)
+        // Проверяем, включено ли разрешение
+        scheduleAlarmFromSettings(this)
         setContent {
             OfficeMPTheme {
                 // A surface container using the 'background' color from the theme
@@ -293,31 +295,8 @@ fun SettingsMenu(
                                 // Обработка выбранного времени
                                 selectedHour = hour
                                 selectedMinute = minute
-
-                                // Создание объекта Calendar с новым временем
-                                val calendar = Calendar.getInstance().apply {
-                                    set(Calendar.HOUR_OF_DAY, selectedHour)
-                                    set(Calendar.MINUTE, selectedMinute)
-                                    set(Calendar.SECOND, 0)
-
-                                    // Если выбранное время уже прошло, устанавливаем на следующий день
-                                    if (after(Calendar.getInstance())) {
-                                        add(Calendar.DAY_OF_MONTH, 1)
-                                    }
-                                }
-
-                                // Получение PendingIntent и установка будильника
-                                val intent = Intent(context, MyBroadcastReceiver::class.java)
-                                val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
-                                    PendingIntent.FLAG_IMMUTABLE)
-                                val triggerAtMillis = calendar.timeInMillis
-
-                                alarmManager.setExactAndAllowWhileIdle(
-                                    AlarmManager.RTC_WAKEUP,
-                                    triggerAtMillis,
-                                    pendingIntent
-                                )
-
+                                saveAlarmTime(context, hour, minute)
+                                setAlarm(context, hour, minute)
                                 isDialogOpen = false // Закрыть диалог после выбора времени
                                 onMenuDismiss()
                             },
@@ -328,12 +307,12 @@ fun SettingsMenu(
                         )
                     }
 
-//                    MenuItem(text = "⏰ Будильник") {
-//
-//
-//                        // При нажатии на пункт меню открываем диалог
-//                        isDialogOpen = true
-//                    }
+                    MenuItem(text = "⏰ Будильник") {
+
+
+                        // При нажатии на пункт меню открываем диалог
+                        isDialogOpen = true
+                    }
 
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -341,7 +320,7 @@ fun SettingsMenu(
                         // Обработчик нажатия на третью опцию
                             exitProcess(0) // Закрыть приложение
                         }
-                        // Добавьте дополнительные пункты меню по мере необходимости
+
                     }
             }
         }
@@ -773,49 +752,50 @@ fun DrawerContent(closeMenu: () -> Unit) {
 }
 
 // Функция для сохранения времени будильника в SharedPreferences
-//fun saveAlarmTime(context: Context, hour: Int, minute: Int) {
-//    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-//    with (sharedPref.edit()) {
-//        putInt("hour", hour)
-//        putInt("minute", minute)
-//        apply()
-//    }
-//}
+fun saveAlarmTime(context: Context, hour: Int, minute: Int) {
+    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+    with (sharedPref.edit()) {
+        putInt("hour", hour)
+        putInt("minute", minute)
+        apply()
+    }
+}
 //
 //// Функция для получения времени будильника из SharedPreferences
-//fun getAlarmTime(context: Context): Pair<Int, Int>? {
-//    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-//    val hour = sharedPref.getInt("hour", -1)
-//    val minute = sharedPref.getInt("minute", -1)
-//    if (hour != -1 && minute != -1) {
-//        return Pair(hour, minute)
-//    }
-//    return null
-//}
-//
+fun getAlarmTime(context: Context): Pair<Int, Int>? {
+    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+    val hour = sharedPref.getInt("hour", -1)
+    val minute = sharedPref.getInt("minute", -1)
+    if (hour != -1 && minute != -1) {
+        return Pair(hour, minute)
+    }
+    return null
+}
+
 //// Функция для установки будильника
-//fun setAlarm(context: Context, hour: Int, minute: Int) {
-//    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-//    val intent = Intent(context, MyBroadcastReceiver::class.java)
-//    val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
-//        PendingIntent.FLAG_IMMUTABLE)
-//    val calendar = Calendar.getInstance().apply {
-//        set(Calendar.HOUR_OF_DAY, hour)
-//        set(Calendar.MINUTE, minute)
-//        set(Calendar.SECOND, 0)
-//        if (after(Calendar.getInstance())) {
-//            add(Calendar.DAY_OF_MONTH, 1)
-//        }
-//    }
-//    val triggerAtMillis = calendar.timeInMillis
-//    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//        alarmManager.setExactAndAllowWhileIdle(
-//            AlarmManager.RTC_WAKEUP,
-//            triggerAtMillis,
-//            pendingIntent
-//        )
-//    }
-//}
+fun setAlarm(context: Context, hour: Int, minute: Int) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val intent = Intent(context, MyBroadcastReceiver::class.java)
+    val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
+        PendingIntent.FLAG_IMMUTABLE)
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        if (after(Calendar.getInstance())) {
+            add(Calendar.DAY_OF_MONTH, 1)
+        }
+    }
+    val triggerAtMillis = calendar.timeInMillis
+
+    alarmManager.set(
+        AlarmManager.RTC_WAKEUP,
+        triggerAtMillis,
+        pendingIntent
+    )
+
+
+}
 //
 //// Ваша функция для установки времени будильника с диалогом выбора времени
 //@Composable
@@ -843,10 +823,36 @@ fun DrawerContent(closeMenu: () -> Unit) {
 //        )
 //    }
 //}
-//
-//// Ваш Broadcast Receiver для обработки срабатывания будильника
+
+// Ваш Broadcast Receiver для обработки срабатывания будильника
 //class MyBroadcastReceiver : BroadcastReceiver() {
 //    override fun onReceive(context: Context?, intent: Intent?) {
 //        // Здесь ваш код для обработки срабатывания будильника
 //    }
 //}
+
+fun scheduleAlarmFromSettings(context: Context) {
+    val scheduler = MyScheduler()
+
+    // Получаем время будильника из сохраненных настроек
+    val alarmTime = scheduler.getAlarmTime(context)
+
+    alarmTime?.let { (hour, minute) ->
+        // Создаем календарь для установки будильника на сохраненное время
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+
+            // Если текущее время позже времени будильника, устанавливаем на следующий день
+            val currentTime = Calendar.getInstance()
+            if (currentTime.after(this)) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        // Устанавливаем будильник на сохраненное время
+        val scheduler = MyScheduler()
+        scheduler.scheduleTask(context, calendar)
+    }
+}
