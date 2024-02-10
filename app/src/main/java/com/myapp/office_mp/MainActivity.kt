@@ -3,7 +3,10 @@
 package com.myapp.office_mp
 
 
+import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -14,6 +17,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -22,6 +26,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,12 +38,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -53,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
@@ -61,18 +73,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
+import com.myapp.office_mp.utils.MyBroadcastReceiver
 import com.myapp.office_mp.utils.MyScheduler
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import java.util.Properties
 import javax.mail.Flags
 import javax.mail.Folder
@@ -82,6 +98,7 @@ import javax.mail.Store
 import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if(!isNotificationEnabled(this))openNotificationSettings(this)
@@ -104,14 +121,17 @@ class MainActivity : ComponentActivity() {
  * Composable that displays an app bar and a list of dogs.
  */
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OfficeMPApp(context: Context) {
     var resultList by remember { mutableStateOf<List<EmailData>>(emptyList()) }
     var isChecking by remember { mutableStateOf(true) } // Флаг для отслеживания статуса проверки
-// В вашем коде OfficeMPApp
+
     val (showDialog, setShowDialog) = remember { mutableStateOf(true) }
     var isAccessCodeValid by remember { mutableStateOf(false) }
     var accessCode by remember { mutableStateOf("") }
+
+    // Для примера, пусть эти переменные отвечают за выбор элемента меню
 
     if (showDialog) {
         AccessCodeDialog(
@@ -146,18 +166,24 @@ fun OfficeMPApp(context: Context) {
         }
     }
 
+    // Состояние для открытия/закрытия бокового меню
+    var isMenuOpen by remember { mutableStateOf(false) }
 
-
-    // Вызываем ReadEmailTask в coroutine при первом запуске
+    // Функция для открытия бокового меню
+    fun openMenu() {
+        isMenuOpen = true
+    }
 
     Scaffold (
         topBar = {
             OfficeMPTopAppBar(
                 modifier = Modifier,
                 isChecking,
-                accessCode
+                accessCode,
+                onMenuClick = { openMenu() }
             )
-        }
+        },
+
     ){ it->
         if(resultList.isNotEmpty()) {
             LazyColumn (contentPadding = it) {
@@ -174,7 +200,166 @@ fun OfficeMPApp(context: Context) {
         }
 
     }
+    SettingsMenu(
+        isOpen = isMenuOpen,
+        onMenuDismiss = { isMenuOpen = false },
+        context,
+        accessCode,
+        onSettingsChangedList = { newResultList ->
+            resultList = newResultList
+        },
+        onSettingsChangedProgress = { newIsChecking ->
+            isChecking = newIsChecking
+        }
+    )
 }
+@SuppressLint("ScheduleExactAlarm")
+@OptIn(DelicateCoroutinesApi::class)
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun SettingsMenu(
+    isOpen: Boolean,
+    onMenuDismiss: () -> Unit,
+    context: Context,
+    accessCode: String,
+    onSettingsChangedList: (List<EmailData>) -> Unit,
+    onSettingsChangedProgress: (Boolean) -> Unit
+) {
+    if (isOpen) {
+        val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.dp
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable(onClick = onMenuDismiss),
+
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+
+                    .width(screenWidth * 0.25f) // Размер меню - четверть ширины экрана
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Действия",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    MenuItem(text = "🔄"+" Обновить") {
+                        onSettingsChangedProgress(true)
+                        GlobalScope.launch(Dispatchers.IO) {
+                            val readEmailTask = ReadEmailTask(context, accessCode)
+                            val result = readEmailTask.execute().get()
+
+                            // Обновляем состояние на главном потоке с помощью обратного вызова
+                            withContext(Dispatchers.Main) {
+                                onSettingsChangedList(result)
+                                onSettingsChangedProgress(false)
+                            }
+                        }
+                        onMenuDismiss()
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    MenuItem(text = "🗑️" + " Стереть") {
+                        Thread {
+                            unreadEmails(accessCode)
+                        }.start()
+                        onSettingsChangedList(emptyList())
+                        onMenuDismiss()
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    var selectedHour by remember { mutableStateOf(0) }
+                    var selectedMinute by remember { mutableStateOf(0) }
+                    var isDialogOpen by remember { mutableStateOf(false) }
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+                    if (isDialogOpen) {
+                        TimePickerDialog(
+                            onTimeSelected = { hour, minute ->
+                                // Обработка выбранного времени
+                                selectedHour = hour
+                                selectedMinute = minute
+
+                                // Создание объекта Calendar с новым временем
+                                val calendar = Calendar.getInstance().apply {
+                                    set(Calendar.HOUR_OF_DAY, selectedHour)
+                                    set(Calendar.MINUTE, selectedMinute)
+                                    set(Calendar.SECOND, 0)
+
+                                    // Если выбранное время уже прошло, устанавливаем на следующий день
+                                    if (after(Calendar.getInstance())) {
+                                        add(Calendar.DAY_OF_MONTH, 1)
+                                    }
+                                }
+
+                                // Получение PendingIntent и установка будильника
+                                val intent = Intent(context, MyBroadcastReceiver::class.java)
+                                val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
+                                    PendingIntent.FLAG_IMMUTABLE)
+                                val triggerAtMillis = calendar.timeInMillis
+
+                                alarmManager.setExactAndAllowWhileIdle(
+                                    AlarmManager.RTC_WAKEUP,
+                                    triggerAtMillis,
+                                    pendingIntent
+                                )
+
+                                isDialogOpen = false // Закрыть диалог после выбора времени
+                                onMenuDismiss()
+                            },
+                            onDismiss = {
+                                isDialogOpen = false
+                                onMenuDismiss()
+                            } // Закрыть диалог при отмене
+                        )
+                    }
+
+//                    MenuItem(text = "⏰ Будильник") {
+//
+//
+//                        // При нажатии на пункт меню открываем диалог
+//                        isDialogOpen = true
+//                    }
+
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    MenuItem(text = "🚪" + " Выход") {
+                        // Обработчик нажатия на третью опцию
+                            exitProcess(0) // Закрыть приложение
+                        }
+                        // Добавьте дополнительные пункты меню по мере необходимости
+                    }
+            }
+        }
+    }
+}
+
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MenuItem(text: String, onItemClick: (String) -> Unit) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.clickable { onItemClick(text) }
+    )
+}
+
+
 @Composable
 fun AccessCodeDialog(onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
     var accessCode by remember { mutableStateOf("") }
@@ -192,6 +377,50 @@ fun AccessCodeDialog(onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
         confirmButton = {
             Button(onClick = { onSubmit(accessCode) }) {
                 Text("OK")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
+@Composable
+fun TimePickerDialog(
+    onTimeSelected: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hour by remember { mutableStateOf(0) }
+    var minute by remember { mutableStateOf(0) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Выберите время") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextField(
+                    value = hour.toString(),
+                    onValueChange = { hour = it.toIntOrNull() ?: 0 },
+                    label = { Text("Часы") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                TextField(
+                    value = minute.toString(),
+                    onValueChange = { minute = it.toIntOrNull() ?: 0 },
+                    label = { Text("Минуты") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onTimeSelected(hour, minute) }) {
+                Text("ОК")
             }
         },
         dismissButton = {
@@ -393,7 +622,8 @@ fun resultInfo(result: EmailData, modifier: Modifier) {
 fun OfficeMPTopAppBar(
     modifier: Modifier = Modifier,
     isChecking: Boolean,
-    accessCode: String
+    accessCode: String,
+    onMenuClick: () -> Unit = { /* ваш код для открытия бокового меню */ }
 ) {
     CenterAlignedTopAppBar(
         title = {
@@ -406,12 +636,12 @@ fun OfficeMPTopAppBar(
                     Text(
                         text = stringResource(id = R.string.app_name),
                         style = MaterialTheme.typography.displayMedium,
-                        modifier = Modifier.clickable {
-                            // Действие при нажатии на текстовый элемент (закрытие приложения)
-                            Thread {
-                                unreadEmails(accessCode)
-                            }.start()
-                        }
+//                        modifier = Modifier.clickable {
+//                            // Действие при нажатии на текстовый элемент (закрытие приложения)
+//                            Thread {
+//                                unreadEmails(accessCode)
+//                            }.start()
+//                        }
                     )
                     Spacer(modifier = Modifier.width(10.dp))
 
@@ -434,7 +664,17 @@ fun OfficeMPTopAppBar(
             }
 
         },
-        modifier = modifier
+        actions = {
+            IconButton(
+                onClick = { onMenuClick() } // Вызов обратного вызова при нажатии на меню
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Menu"
+                )
+            }
+        },
+        modifier = modifier,
     )
 }
 
@@ -502,3 +742,111 @@ fun openNotificationSettings(context: Context) {
     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
     context.startActivity(intent)
 }
+
+@Composable
+fun DrawerContent(closeMenu: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Команды в боковой панели
+        // Например:
+        Button(
+            onClick = {
+                // Ваша логика при нажатии на команду в боковой панели
+                // Закрываем боковое меню
+                closeMenu()
+            },
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = "Команда 1")
+        }
+        Button(
+            onClick = {
+                // Ваша логика при нажатии на команду в боковой панели
+                // Закрываем боковое меню
+                closeMenu()
+            },
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = "Команда 2")
+        }
+        // Добавьте другие команды, если необходимо
+    }
+}
+
+// Функция для сохранения времени будильника в SharedPreferences
+//fun saveAlarmTime(context: Context, hour: Int, minute: Int) {
+//    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+//    with (sharedPref.edit()) {
+//        putInt("hour", hour)
+//        putInt("minute", minute)
+//        apply()
+//    }
+//}
+//
+//// Функция для получения времени будильника из SharedPreferences
+//fun getAlarmTime(context: Context): Pair<Int, Int>? {
+//    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+//    val hour = sharedPref.getInt("hour", -1)
+//    val minute = sharedPref.getInt("minute", -1)
+//    if (hour != -1 && minute != -1) {
+//        return Pair(hour, minute)
+//    }
+//    return null
+//}
+//
+//// Функция для установки будильника
+//fun setAlarm(context: Context, hour: Int, minute: Int) {
+//    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+//    val intent = Intent(context, MyBroadcastReceiver::class.java)
+//    val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
+//        PendingIntent.FLAG_IMMUTABLE)
+//    val calendar = Calendar.getInstance().apply {
+//        set(Calendar.HOUR_OF_DAY, hour)
+//        set(Calendar.MINUTE, minute)
+//        set(Calendar.SECOND, 0)
+//        if (after(Calendar.getInstance())) {
+//            add(Calendar.DAY_OF_MONTH, 1)
+//        }
+//    }
+//    val triggerAtMillis = calendar.timeInMillis
+//    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+//        alarmManager.setExactAndAllowWhileIdle(
+//            AlarmManager.RTC_WAKEUP,
+//            triggerAtMillis,
+//            pendingIntent
+//        )
+//    }
+//}
+//
+//// Ваша функция для установки времени будильника с диалогом выбора времени
+//@Composable
+//fun ShowTimePickerDialog(context: Context) {
+//    var selectedHour by remember { mutableStateOf(0) }
+//    var selectedMinute by remember { mutableStateOf(0) }
+//    var isDialogOpen by remember { mutableStateOf(false) }
+//
+//    // При нажатии на пункт меню открываем диалог
+//    MenuItem(text = "⏰ Будильник") {
+//        isDialogOpen = true
+//    }
+//
+//    if (isDialogOpen) {
+//        TimePickerDialog(
+//            onTimeSelected = { hour, minute ->
+//                // Обновление выбранного времени
+//                selectedHour = hour
+//                selectedMinute = minute
+//                saveAlarmTime(context, hour, minute)
+//                setAlarm(context, hour, minute)
+//                isDialogOpen = false // Закрыть диалог после выбора времени
+//            },
+//            onDismiss = { isDialogOpen = false } // Закрыть диалог при отмене
+//        )
+//    }
+//}
+//
+//// Ваш Broadcast Receiver для обработки срабатывания будильника
+//class MyBroadcastReceiver : BroadcastReceiver() {
+//    override fun onReceive(context: Context?, intent: Intent?) {
+//        // Здесь ваш код для обработки срабатывания будильника
+//    }
+//}

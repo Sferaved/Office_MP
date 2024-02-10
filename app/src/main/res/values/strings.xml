@@ -15,7 +15,7 @@
   -->
 <resources>
     <string name="app_name">Office MP</string>
-    <string name="app_code">1.010</string>
+    <string name="app_code">1.012</string>
     <string name="notification_channel_name">notify channel</string>
     <string name="notification_channel_description">notification_channel_description</string>
 </resources>

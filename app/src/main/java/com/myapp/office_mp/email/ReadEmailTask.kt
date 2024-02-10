@@ -257,8 +257,7 @@ class ReadEmailTask(
 
                 if (comment_code != "0" && docNumber != "") {
                     addValueToResultList(resultList, currentEmailData)
-                }
-                if (ccd_21_01 != "") {
+                } else  if (ccd_21_01 != "") {
                     addValueToResultList(resultList, currentEmailData)
                 }
             }
