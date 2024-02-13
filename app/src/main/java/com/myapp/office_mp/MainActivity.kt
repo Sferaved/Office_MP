@@ -4,9 +4,7 @@ package com.myapp.office_mp
 
 
 import android.annotation.SuppressLint
-import android.app.AlarmManager
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -80,15 +78,18 @@ import androidx.core.app.NotificationManagerCompat
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
-import com.myapp.office_mp.utils.MyBroadcastReceiver
-import com.myapp.office_mp.utils.MyScheduler
+import com.myapp.office_mp.utils.db.DatabaseHelper
+import com.myapp.office_mp.utils.notification.MyService
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.util.Properties
 import javax.mail.Flags
 import javax.mail.Folder
@@ -98,12 +99,15 @@ import javax.mail.Store
 import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if(!isNotificationEnabled(this))openNotificationSettings(this)
         // Проверяем, включено ли разрешение
-        scheduleAlarmFromSettings(this)
+
+        setTimeToPush()
+
         setContent {
             OfficeMPTheme {
                 // A surface container using the 'background' color from the theme
@@ -114,10 +118,42 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        val scheduler = MyScheduler()
-        scheduler.scheduleTask(this)
+
+    }
+
+    private fun setTimeToPush() {
+
+        val dbHelper = DatabaseHelper(applicationContext)
+        val notificationTimeMillis = dbHelper.getFirstNotificationTime()
+
+        if (notificationTimeMillis != null && notificationTimeMillis > 0) {
+            val notificationTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(Date(notificationTimeMillis))
+            Log.d("MyService", "First notification time: $notificationTime")
+        } else {
+            Log.d("MyService", "No notification time found in the database")
+        }
+
+
+        if(notificationTimeMillis == null) {
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 8)
+                set(Calendar.MINUTE, 30)
+                set(Calendar.SECOND, 0)
+            }
+
+            val triggerTimeMillis = calendar.timeInMillis
+
+            dbHelper.addOrUpdateNotificationTime(triggerTimeMillis)
+        }
+
+        dbHelper.updateNotificationCurrentTimeOneDay(applicationContext)
+
+        val serviceIntent = Intent(this, MyService::class.java)
+        startService(serviceIntent)
     }
 }
+
 
 /**
  * Composable that displays an app bar and a list of dogs.
@@ -286,8 +322,8 @@ fun SettingsMenu(
 
                     var selectedHour by remember { mutableStateOf(0) }
                     var selectedMinute by remember { mutableStateOf(0) }
+
                     var isDialogOpen by remember { mutableStateOf(false) }
-                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
                     if (isDialogOpen) {
                         TimePickerDialog(
@@ -295,9 +331,11 @@ fun SettingsMenu(
                                 // Обработка выбранного времени
                                 selectedHour = hour
                                 selectedMinute = minute
-                                saveAlarmTime(context, hour, minute)
+
                                 setAlarm(context, hour, minute)
+
                                 isDialogOpen = false // Закрыть диалог после выбора времени
+
                                 onMenuDismiss()
                             },
                             onDismiss = {
@@ -371,8 +409,13 @@ fun TimePickerDialog(
     onTimeSelected: (hour: Int, minute: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var hour by remember { mutableStateOf(0) }
-    var minute by remember { mutableStateOf(0) }
+    val currentTime = Calendar.getInstance()
+    val currentHour = currentTime.get(Calendar.HOUR_OF_DAY)
+    val currentMinute = currentTime.get(Calendar.MINUTE)
+
+
+    var hour by remember { mutableStateOf(currentHour) }
+    var minute by remember { mutableStateOf(currentMinute) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -419,9 +462,18 @@ fun ResultItem(
     var expanded by remember {
         mutableStateOf(false)
     }
+    @Composable
+    fun getColor(comment: String): Color {
+        return when (comment) {
+            "Принято в базу" ->MaterialTheme.colorScheme.secondaryContainer// Пример цвета для определенного значения comment
+            "ОФОРМЛЕНО" ->  Color.Cyan  // Другой пример цвета
+            else -> MaterialTheme.colorScheme.primaryContainer // Цвет по умолчанию
+        }
+    }
+
     val color by animateColorAsState(
         targetValue = if (expanded) MaterialTheme.colorScheme.tertiaryContainer
-        else MaterialTheme.colorScheme.primaryContainer,
+        else getColor(result.comment), // Используем функцию для определения цвета
         label = "",
     )
         Card(modifier = modifier) {
@@ -722,137 +774,26 @@ fun openNotificationSettings(context: Context) {
     context.startActivity(intent)
 }
 
-@Composable
-fun DrawerContent(closeMenu: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Команды в боковой панели
-        // Например:
-        Button(
-            onClick = {
-                // Ваша логика при нажатии на команду в боковой панели
-                // Закрываем боковое меню
-                closeMenu()
-            },
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(text = "Команда 1")
-        }
-        Button(
-            onClick = {
-                // Ваша логика при нажатии на команду в боковой панели
-                // Закрываем боковое меню
-                closeMenu()
-            },
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(text = "Команда 2")
-        }
-        // Добавьте другие команды, если необходимо
-    }
-}
-
-// Функция для сохранения времени будильника в SharedPreferences
-fun saveAlarmTime(context: Context, hour: Int, minute: Int) {
-    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-    with (sharedPref.edit()) {
-        putInt("hour", hour)
-        putInt("minute", minute)
-        apply()
-    }
-}
-//
-//// Функция для получения времени будильника из SharedPreferences
-fun getAlarmTime(context: Context): Pair<Int, Int>? {
-    val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-    val hour = sharedPref.getInt("hour", -1)
-    val minute = sharedPref.getInt("minute", -1)
-    if (hour != -1 && minute != -1) {
-        return Pair(hour, minute)
-    }
-    return null
-}
-
 //// Функция для установки будильника
 fun setAlarm(context: Context, hour: Int, minute: Int) {
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    val intent = Intent(context, MyBroadcastReceiver::class.java)
-    val pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
-        PendingIntent.FLAG_IMMUTABLE)
+
     val calendar = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, hour)
         set(Calendar.MINUTE, minute)
         set(Calendar.SECOND, 0)
-        if (after(Calendar.getInstance())) {
-            add(Calendar.DAY_OF_MONTH, 1)
-        }
+//        if (after(Calendar.getInstance())) {
+//            add(Calendar.DAY_OF_MONTH, 1)
+//        }
     }
-    val triggerAtMillis = calendar.timeInMillis
 
-    alarmManager.set(
-        AlarmManager.RTC_WAKEUP,
-        triggerAtMillis,
-        pendingIntent
-    )
+    val dbHelper = DatabaseHelper(context)
 
+    // Записываем новое время будильника в базу данных
+    val triggerTimeMillis = calendar.timeInMillis
+    dbHelper.addOrUpdateNotificationTime(triggerTimeMillis)
+
+    dbHelper.updateNotificationCurrentTimeOneDay(context)
 
 }
-//
-//// Ваша функция для установки времени будильника с диалогом выбора времени
-//@Composable
-//fun ShowTimePickerDialog(context: Context) {
-//    var selectedHour by remember { mutableStateOf(0) }
-//    var selectedMinute by remember { mutableStateOf(0) }
-//    var isDialogOpen by remember { mutableStateOf(false) }
-//
-//    // При нажатии на пункт меню открываем диалог
-//    MenuItem(text = "⏰ Будильник") {
-//        isDialogOpen = true
-//    }
-//
-//    if (isDialogOpen) {
-//        TimePickerDialog(
-//            onTimeSelected = { hour, minute ->
-//                // Обновление выбранного времени
-//                selectedHour = hour
-//                selectedMinute = minute
-//                saveAlarmTime(context, hour, minute)
-//                setAlarm(context, hour, minute)
-//                isDialogOpen = false // Закрыть диалог после выбора времени
-//            },
-//            onDismiss = { isDialogOpen = false } // Закрыть диалог при отмене
-//        )
-//    }
-//}
 
-// Ваш Broadcast Receiver для обработки срабатывания будильника
-//class MyBroadcastReceiver : BroadcastReceiver() {
-//    override fun onReceive(context: Context?, intent: Intent?) {
-//        // Здесь ваш код для обработки срабатывания будильника
-//    }
-//}
 
-fun scheduleAlarmFromSettings(context: Context) {
-    val scheduler = MyScheduler()
-
-    // Получаем время будильника из сохраненных настроек
-    val alarmTime = scheduler.getAlarmTime(context)
-
-    alarmTime?.let { (hour, minute) ->
-        // Создаем календарь для установки будильника на сохраненное время
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-
-            // Если текущее время позже времени будильника, устанавливаем на следующий день
-            val currentTime = Calendar.getInstance()
-            if (currentTime.after(this)) {
-                add(Calendar.DAY_OF_MONTH, 1)
-            }
-        }
-
-        // Устанавливаем будильник на сохраненное время
-        val scheduler = MyScheduler()
-        scheduler.scheduleTask(context, calendar)
-    }
-}

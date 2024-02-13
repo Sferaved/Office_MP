@@ -11,8 +11,8 @@ android {
         applicationId = "com.myapp.office_mp"
         minSdk = 24
         targetSdk = 33
-        versionCode = 1014
-        versionName = "1.014"
+        versionCode = 1018
+        versionName = "1.018"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -53,7 +53,7 @@ android {
 
 dependencies {
 
-    implementation(platform("androidx.compose:compose-bom:2023.05.01"))
+    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3")
@@ -70,6 +70,7 @@ dependencies {
 
     implementation ("com.sun.mail:android-mail:1.6.7")
     implementation ("com.sun.mail:android-activation:1.6.7")
-    implementation ("org.apache.commons:commons-compress:1.21")
+    implementation ("org.apache.commons:commons-compress:1.25.0")
     implementation ("androidx.appcompat:appcompat:1.6.1")
+    implementation ("androidx.work:work-runtime:2.9.0")
 }
