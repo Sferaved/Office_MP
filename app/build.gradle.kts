@@ -11,8 +11,8 @@ android {
         applicationId = "com.myapp.office_mp"
         minSdk = 24
         targetSdk = 33
-        versionCode = 1019
-        versionName = "1.019"
+        versionCode = 1020
+        versionName = "1.020"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -74,4 +74,6 @@ dependencies {
     implementation ("org.apache.commons:commons-compress:1.25.0")
     implementation ("androidx.appcompat:appcompat:1.6.1")
     implementation ("androidx.work:work-runtime:2.9.0")
+
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 }

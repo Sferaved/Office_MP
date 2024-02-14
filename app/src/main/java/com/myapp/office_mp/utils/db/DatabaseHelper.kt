@@ -130,7 +130,23 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     .format(Date(newNotificationTimeMillis))
                 Log.d("MyService", "Updated notification time: $notificationTime")
             } else {
-                Log.d("MyService", "Current time is after the notification time")
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val todayStartMillis = calendar.timeInMillis
+
+                // Устанавливаем дату на сегодняшний день
+                val todayNotificationTimeMillis = todayStartMillis + (notificationTimeMillis - todayStartMillis)
+
+                // Обновляем запись времени в базе данных
+                dbHelper.addOrUpdateNotificationTime(todayNotificationTimeMillis)
+
+                // Выводим обновленное время в лог
+                val notificationTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                    .format(Date(todayNotificationTimeMillis))
+                Log.d("MyService", "Updated notification time: $notificationTime")
             }
         } else {
             Log.d("MyService", "No notification time found in the database")
