@@ -40,15 +40,6 @@
 
         <service android:name=".utils.notification.MyService" />
 
-        <receiver android:name=".utils.notification.MyBroadcastReceiver"
-            android:exported="true"
-            tools:ignore="WrongManifestParent">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <!-- Добавьте другие необходимые фильтры действий, например, для определенного времени -->
-            </intent-filter>
-        </receiver>
-
         <receiver android:name=".utils.notification.BootReceiver"
             android:exported="true">
             <intent-filter>
