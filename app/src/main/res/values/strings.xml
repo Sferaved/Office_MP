@@ -15,7 +15,15 @@
   -->
 <resources>
     <string name="app_name">Office MP</string>
-    <string name="app_code">1.021</string>
+    <string name="app_code">1.022</string>
     <string name="notification_channel_name">notify channel</string>
     <string name="notification_channel_description">notification_channel_description</string>
+    <string name="author">Об авторе</string>
+    <string name="andrii_korzhov">Andrii Korzhov</string>
+    <string name="android_developer">Android Developer</string>
+    <string name="my_email">sferaved@gmail.com</string>
+    <string name="year">2024</string>
+    <string name="subject">Сообщения для разработчика</string>
+    <string name="message">Предложения по доработке приложения:</string>
+    <string name="app_name_text">Мобильный офис таможенного представителя</string>
 </resources>

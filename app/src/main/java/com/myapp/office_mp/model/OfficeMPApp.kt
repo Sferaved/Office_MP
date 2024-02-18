@@ -18,6 +18,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,8 +35,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -69,9 +73,16 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.myapp.office_mp.R
 import com.myapp.office_mp.email.EmailData
 import com.myapp.office_mp.email.ReadEmailTask
+import com.myapp.office_mp.utils.GreetingCard
+import com.myapp.office_mp.utils.OfficeScreen
+import com.myapp.office_mp.utils.StartPage
 import com.myapp.office_mp.utils.db.DatabaseHelper
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -88,14 +99,69 @@ import javax.mail.Session
 import javax.mail.Store
 import kotlin.system.exitProcess
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun LOfficeMPApp(
+    context: Context,
+    navController: NavHostController = rememberNavController()
+) {
+    Scaffold (
 
+        bottomBar = {
+            BottomAppBar(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+
+                    IconButton(onClick = { navController.navigate(OfficeScreen.Main.name) }) {
+                        Icon(Icons.Default.Home, contentDescription = "Home")
+                    }
+
+                    IconButton(onClick = { navController.navigate(OfficeScreen.AboutAuthor.name) }) {
+                        Icon(Icons.Default.Info, contentDescription = "About Author")
+                    }
+
+
+                }
+            }
+        }
+    ) { it->
+
+        NavHost(
+            navController = navController,
+            startDestination = OfficeScreen.Start.name,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(it)
+        ) {
+            composable(route = OfficeScreen.Start.name) {
+                // Экран "Start"
+                StartPage(navController)
+            }
+            composable(route = OfficeScreen.Main.name) {
+                // Экран "Домой"
+                OfficeMPApp(context)
+            }
+            composable(route = OfficeScreen.AboutAuthor.name) {
+                // Экран "Об Авторе"
+                GreetingCard()
+            }
+        }
+
+    }
+}
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OfficeMPApp(
     context: Context,
-    officeMPAppViewModel: OfficeMPAppViewModel = viewModel()
+    officeMPAppViewModel: OfficeMPAppViewModel = viewModel(),
 ) {
 
     if (!isNotificationEnabled(context)) openNotificationSettings(context)
@@ -154,6 +220,7 @@ fun OfficeMPApp(
     fun openMenu() {
         isMenuOpen = true
     }
+    // Get current back stack entry
 
     Scaffold (
         topBar = {
@@ -163,9 +230,10 @@ fun OfficeMPApp(
                 accessCode,
                 onMenuClick = { openMenu() }
             )
-        },
-
+        }
         ){ it->
+
+
         if(resultList.isNotEmpty()) {
             LazyColumn (contentPadding = it) {
                 items(resultList.sortedByDescending { it.modificationDate }) {

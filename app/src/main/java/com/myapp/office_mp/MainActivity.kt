@@ -1,5 +1,3 @@
-@file:Suppress("UNUSED_EXPRESSION")
-
 package com.myapp.office_mp
 
 
@@ -11,7 +9,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.myapp.office_mp.model.OfficeMPApp
+import com.myapp.office_mp.model.LOfficeMPApp
 import com.myapp.office_mp.ui.theme.OfficeMPTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,7 +24,7 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    OfficeMPApp(applicationContext)
+                    LOfficeMPApp(applicationContext)
                 }
             }
         }
