@@ -1,67 +1,43 @@
 package com.myapp.office_mp.model
 
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import com.myapp.office_mp.utils.db.DatabaseHelper
-import com.myapp.office_mp.utils.notification.MyService
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+import com.myapp.office_mp.utils.notification.PushNotificationService
+
 
 class OfficeMPAppViewModel : ViewModel() {
+
+    @RequiresApi(Build.VERSION_CODES.O)
     fun setTimeToPush(context: Context) {
 
         val dbHelper = DatabaseHelper(context)
-        val notificationTimeMillis = dbHelper.getFirstNotificationTime()
+        val notificationTime = dbHelper.getNotificationTime()
 
-        if (notificationTimeMillis != null && notificationTimeMillis > 0) {
-            val notificationTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                .format(Date(notificationTimeMillis))
-            Log.d("MyService", "First notification time: $notificationTime")
+        if (notificationTime == null) {
+            dbHelper.updateNotificationTime(8, 30, 0)
+            Log.d("OfficeMPAppViewModel", "First notification time: 08:30:00")
         } else {
-            Log.d("MyService", "No notification time found in the database")
+            val (hour, minute, second) = notificationTime
+            Log.d("OfficeMPAppViewModel", "Notification time found in the database: $hour:$minute:$second")
         }
-
-
-        if(notificationTimeMillis == null) {
-            val calendar = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 8)
-                set(Calendar.MINUTE, 30)
-                set(Calendar.SECOND, 0)
-            }
-
-            val triggerTimeMillis = calendar.timeInMillis
-
-            dbHelper.addOrUpdateNotificationTime(triggerTimeMillis)
-        }
-
-        dbHelper.updateNotificationCurrentTimeOneDay(context)
 
         startServiceIfNotRunning(context)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun startServiceIfNotRunning(context: Context) {
         // Проверяем статус сервиса
-        val serviceIntent = Intent(context, MyService::class.java)
-        if (!isServiceRunning(context, MyService::class.java)) {
-            // Если сервис не запущен, запускаем его
-            context.startService(serviceIntent)
-        }
-    }
+        val serviceIntent = Intent(context, PushNotificationService::class.java)
 
-    private fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
-        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        for (service in manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.name == service.service.className) {
-                return true
-            }
-        }
-        return false
-    }
+        context.stopService(serviceIntent)
+        context.startService(serviceIntent)
 
+        Log.d("OfficeMPAppViewModel", "startServiceIfNotRunning")
+    }
 }
 

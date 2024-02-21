@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -103,8 +105,10 @@ import kotlin.system.exitProcess
 @Composable
 fun LOfficeMPApp(
     context: Context,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    officeMPAppViewModel: OfficeMPAppViewModel = viewModel()
 ) {
+    officeMPAppViewModel.setTimeToPush(context)
     Scaffold (
 
         bottomBar = {
@@ -145,11 +149,11 @@ fun LOfficeMPApp(
             }
             composable(route = OfficeScreen.Main.name) {
                 // Экран "Домой"
-                OfficeMPApp(context)
+                OfficeMPApp(context, navController)
             }
             composable(route = OfficeScreen.AboutAuthor.name) {
                 // Экран "Об Авторе"
-                GreetingCard()
+                GreetingCard(navController)
             }
         }
 
@@ -161,15 +165,11 @@ fun LOfficeMPApp(
 @Composable
 fun OfficeMPApp(
     context: Context,
-    officeMPAppViewModel: OfficeMPAppViewModel = viewModel(),
+    navController: NavController
 ) {
 
     if (!isNotificationEnabled(context)) openNotificationSettings(context)
     // Проверяем, включено ли разрешение
-
-    officeMPAppViewModel.setTimeToPush(context)
-
-
 
     var resultList by remember { mutableStateOf<List<EmailData>>(emptyList()) }
     var isChecking by remember { mutableStateOf(true) } // Флаг для отслеживания статуса проверки
@@ -228,9 +228,11 @@ fun OfficeMPApp(
                 modifier = Modifier,
                 isChecking,
                 accessCode,
-                onMenuClick = { openMenu() }
+                onMenuClick = { openMenu() },
+                navController,
             )
-        }
+        },
+
         ){ it->
 
 
@@ -665,7 +667,8 @@ fun OfficeMPTopAppBar(
     modifier: Modifier = Modifier,
     isChecking: Boolean,
     accessCode: String,
-    onMenuClick: () -> Unit = { /* ваш код для открытия бокового меню */ }
+    onMenuClick: () -> Unit = { /* ваш код для открытия бокового меню */ },
+    navController: NavController,
 ) {
     CenterAlignedTopAppBar(
         title = {
@@ -717,6 +720,16 @@ fun OfficeMPTopAppBar(
             }
         },
         modifier = modifier,
+        navigationIcon = {
+
+            IconButton(onClick = { navController.popBackStack(OfficeScreen.Start.name, inclusive = false) }) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back_button)
+                )
+            }
+
+        }
     )
 }
 
@@ -788,22 +801,8 @@ fun openNotificationSettings(context: Context) {
 //// Функция для установки будильника
 fun setAlarm(context: Context, hour: Int, minute: Int) {
 
-    val calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, hour)
-        set(Calendar.MINUTE, minute)
-        set(Calendar.SECOND, 0)
-//        if (after(Calendar.getInstance())) {
-//            add(Calendar.DAY_OF_MONTH, 1)
-//        }
-    }
-
     val dbHelper = DatabaseHelper(context)
-
-    // Записываем новое время будильника в базу данных
-    val triggerTimeMillis = calendar.timeInMillis
-    dbHelper.addOrUpdateNotificationTime(triggerTimeMillis)
-
-    dbHelper.updateNotificationCurrentTimeOneDay(context)
+    dbHelper.updateNotificationTime(hour, minute, 0)
 
 }
 

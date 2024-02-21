@@ -26,4 +26,5 @@
     <string name="subject">Сообщения для разработчика</string>
     <string name="message">Предложения по доработке приложения:</string>
     <string name="app_name_text">Мобильный офис таможенного представителя</string>
+    <string name="back_button">назад</string>
 </resources>

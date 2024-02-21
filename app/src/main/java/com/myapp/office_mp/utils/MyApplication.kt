@@ -6,23 +6,31 @@ import android.os.Bundle
 
 class MyApplication : Application() {
 
-    private var isAppInForeground = false
+    private var _isAppInForeground = false
+
+    var isAppInForeground: Boolean
+        get() = _isAppInForeground
+        set(value) {
+            _isAppInForeground = value
+            // Additional logic here if needed
+        }
+
     override fun onCreate() {
         super.onCreate()
 
-        // Регистрация слушателя жизненного цикла активности
+        // Registering activity lifecycle callback
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
 
             override fun onActivityStarted(activity: Activity) {}
 
             override fun onActivityResumed(activity: Activity) {
-                // Приложение активно в переднем плане
+                // App is in foreground
                 isAppInForeground = true
             }
 
             override fun onActivityPaused(activity: Activity) {
-                // Приложение ушло в фоновый режим
+                // App goes to background
                 isAppInForeground = false
             }
 
@@ -33,9 +41,4 @@ class MyApplication : Application() {
             override fun onActivityDestroyed(activity: Activity) {}
         })
     }
-
-    fun isAppInForeground(): Boolean {
-        return isAppInForeground
-    }
-
 }
