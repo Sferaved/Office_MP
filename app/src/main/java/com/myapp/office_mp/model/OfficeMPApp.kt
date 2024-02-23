@@ -149,7 +149,11 @@ fun LOfficeMPApp(
             }
             composable(route = OfficeScreen.Main.name) {
                 // Экран "Домой"
-                OfficeMPApp(context, navController)
+                OfficeMPApp(
+                    context,
+                    navController,
+                    officeMPAppViewModel,
+                )
             }
             composable(route = OfficeScreen.AboutAuthor.name) {
                 // Экран "Об Авторе"
@@ -165,7 +169,8 @@ fun LOfficeMPApp(
 @Composable
 fun OfficeMPApp(
     context: Context,
-    navController: NavController
+    navController: NavController,
+    viewModel: OfficeMPAppViewModel,
 ) {
 
     if (!isNotificationEnabled(context)) openNotificationSettings(context)
@@ -261,7 +266,8 @@ fun OfficeMPApp(
         },
         onSettingsChangedProgress = { newIsChecking ->
             isChecking = newIsChecking
-        }
+        },
+        viewModel,
     )
 }
 @SuppressLint("ScheduleExactAlarm")
@@ -274,7 +280,8 @@ fun SettingsMenu(
     context: Context,
     accessCode: String,
     onSettingsChangedList: (List<EmailData>) -> Unit,
-    onSettingsChangedProgress: (Boolean) -> Unit
+    onSettingsChangedProgress: (Boolean) -> Unit,
+    viewModel: OfficeMPAppViewModel,
 ) {
     if (isOpen) {
         val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.dp
@@ -345,6 +352,7 @@ fun SettingsMenu(
                                 selectedHour = hour
                                 selectedMinute = minute
 
+//                                setAlarm(context, hour, minute, viewModel)
                                 setAlarm(context, hour, minute)
 
                                 isDialogOpen = false // Закрыть диалог после выбора времени
@@ -688,12 +696,7 @@ fun OfficeMPTopAppBar(
 //                            }.start()
 //                        }
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
 
-                    Text(
-                        text = stringResource(id = R.string.app_code),
-                        style = MaterialTheme.typography.labelSmall
-                    )
                 }
                 if (isChecking) {
                     LinearProgressIndicator(
@@ -721,14 +724,12 @@ fun OfficeMPTopAppBar(
         },
         modifier = modifier,
         navigationIcon = {
-
             IconButton(onClick = { navController.popBackStack(OfficeScreen.Start.name, inclusive = false) }) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
                     contentDescription = stringResource(R.string.back_button)
                 )
             }
-
         }
     )
 }
@@ -746,7 +747,7 @@ fun unreadEmails(
         val session: Session = Session.getDefaultInstance(props, null)
         val store: Store = session.store
         when (accessCode) {
-            "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+            "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "ImVXWwHuw83Q5m16") //Таня
             "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
             "456" -> store.connect("imap.ukr.net", "sferved.n@ukr.net", "zyiYFd7LigTv2vyB") //Наташа
         }
@@ -799,11 +800,19 @@ fun openNotificationSettings(context: Context) {
 }
 
 //// Функция для установки будильника
-fun setAlarm(context: Context, hour: Int, minute: Int) {
+fun setAlarm(
+    context: Context,
+    hour: Int,
+    minute: Int,
+//    viewModel: OfficeMPAppViewModel,
+) {
 
     val dbHelper = DatabaseHelper(context)
     dbHelper.updateNotificationTime(hour, minute, 0)
 
+    val newTime:Triple<Int,Int,Int> = Triple (hour, minute, 0)
+//    viewModel.updateState(newTime)
+//    viewModel.getCurrentState()
 }
 
 

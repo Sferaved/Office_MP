@@ -16,6 +16,7 @@
 <resources>
     <string name="app_name">Office MP</string>
     <string name="app_code">1.022</string>
+    <string name="version">Версия 1.023</string>
     <string name="notification_channel_name">notify channel</string>
     <string name="notification_channel_description">notification_channel_description</string>
     <string name="author">Об авторе</string>

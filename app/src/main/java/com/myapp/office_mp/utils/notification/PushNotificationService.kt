@@ -1,6 +1,5 @@
 package com.myapp.office_mp.utils.notification
 
-import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -12,12 +11,11 @@ import android.util.Log
 import com.myapp.office_mp.utils.db.DatabaseHelper
 import java.util.Calendar
 
-class PushNotificationService : Service() {
+class PushNotificationService (): Service() {
 
     private val TAG = "PushNotificationService"
     private lateinit var context: Context
-
-    private val intervalMillis: Long = AlarmManager.INTERVAL_DAY // Раз в день
+//    private lateinit var timeState: MutableStateFlow<TimeState>
     private val dbHelper by lazy { DatabaseHelper(context) }
 
     override fun onCreate() {
@@ -25,6 +23,7 @@ class PushNotificationService : Service() {
         Log.d(TAG, "onCreate: ")
         context = applicationContext
         createNotificationChannel()
+//        timeState = MutableStateFlow(TimeState(0, 0, 0))
         scheduleNotificationUpdate()
     }
 
@@ -49,14 +48,27 @@ class PushNotificationService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
     }
-
+//    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+//        Log.d(TAG, "onStartCommand: ")
+//        context = applicationContext
+//
+//
+//        val hour = intent?.getIntExtra("hour", 0) ?: 0
+//        val minute = intent?.getIntExtra("minute", 0) ?: 0
+//        val second = intent?.getIntExtra("second", 0) ?: 0
+//
+//        Log.d(TAG, "timeState initialized with: ${hour}:${minute}:${second}")
+//        // Здесь вы можете инициализировать timeState с использованием полученных значений
+//        timeState = MutableStateFlow(TimeState(hour, minute, second))
+//        Log.d(TAG, "timeState initialized with: ${timeState.value.hour}:${timeState.value.minute}:${timeState.value.second}")
+//        return START_STICKY
+//    }
 
     private fun scheduleNotificationUpdate() {
         Log.d(TAG, "scheduleNotificationUpdate: ")
         val notificationTime = dbHelper.getNotificationTime() ?: Triple(8, 0, 0) // Время по умолчанию 8:00
         Log.d(TAG, "Notification time: ${notificationTime.first}:${notificationTime.second}:${notificationTime.third}")
 
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         // Получение текущего времени и установка времени срабатывания
         val calendar = Calendar.getInstance()
         calendar.timeInMillis = System.currentTimeMillis()

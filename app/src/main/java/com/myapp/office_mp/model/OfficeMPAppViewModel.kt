@@ -11,7 +11,8 @@ import com.myapp.office_mp.utils.notification.PushNotificationService
 
 
 class OfficeMPAppViewModel : ViewModel() {
-
+//    private val _timeState = MutableStateFlow(TimeState())
+//    val timeState: StateFlow<TimeState> = _timeState.asStateFlow()
     @RequiresApi(Build.VERSION_CODES.O)
     fun setTimeToPush(context: Context) {
 
@@ -30,14 +31,45 @@ class OfficeMPAppViewModel : ViewModel() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun startServiceIfNotRunning(context: Context) {
+    private fun startServiceIfNotRunning(
+        context: Context
+    ) {
+
         // Проверяем статус сервиса
+//        val currentState = getCurrentState()
         val serviceIntent = Intent(context, PushNotificationService::class.java)
 
         context.stopService(serviceIntent)
+
+//        serviceIntent.putExtra("hour", currentState.first)
+//        serviceIntent.putExtra("minute", currentState.second)
+//        serviceIntent.putExtra("second", currentState.third)
+
         context.startService(serviceIntent)
 
         Log.d("OfficeMPAppViewModel", "startServiceIfNotRunning")
     }
+
+//    fun updateState(newTime: Triple<Int, Int, Int>) {
+//        _timeState.update { currentState ->
+//            val updatedState = currentState.copy(
+//                hour = newTime.first,
+//                minute = newTime.second,
+//                second = newTime.third
+//            )
+//            Log.d("TAG", "updateState: Time updated: ${newTime.first}:${newTime.second}:${newTime.third}")
+//            Log.d("TAG", "updateState: Updated state: ${updatedState.hour}:${updatedState.minute}:${updatedState.second}")
+//            updatedState
+//        }
+//    }
+//
+//
+//
+//    fun getCurrentState(): Triple<Int, Int, Int> {
+//        val currentState = _timeState.value // Получаем текущее состояние
+//        Log.d("TAG", "getCurrentState: " + "Time updated: ${currentState.hour}:${currentState.minute}:${ currentState.second}")
+//        return Triple(currentState.hour, currentState.minute, currentState.second)
+//    }
+
 }
 

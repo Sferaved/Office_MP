@@ -46,7 +46,7 @@ class ReadEmailTask(
             val store: Store = session.store
 
             when (this.accessCode) {
-                "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "f7K9YvpMeeZTyyKa") //Таня
+                "777" -> store.connect("imap.ukr.net", "sferved.t@ukr.net", "ImVXWwHuw83Q5m16") //Таня
                 "321" -> store.connect("imap.ukr.net", "sferved.m@ukr.net", "JMhTvEgCF9GsIyAQ") //Маня
                 "456" -> store.connect("imap.ukr.net", "sferved.n@ukr.net", "zyiYFd7LigTv2vyB") //Наташа
             }

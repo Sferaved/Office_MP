@@ -134,7 +134,7 @@ fun GreetingCard(
                 )
                 Text(
                     text = stringResource(R.string.my_email),
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Start,
                     modifier = Modifier.padding(
                         start = 10.dp
@@ -154,11 +154,7 @@ fun GreetingCard(
 
                 Text(
                     text = stringResource(R.string.year),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(
-                        start = 10.dp
-                    )
+                    style = MaterialTheme.typography.labelSmall
 
                 )
             }
@@ -185,12 +181,6 @@ fun GreetingCardAppBar(
                     Text(
                         text = stringResource(id = R.string.app_name),
                         style = MaterialTheme.typography.displayMedium,
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Text(
-                        text = stringResource(id = R.string.app_code),
-                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }

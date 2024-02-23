@@ -4,10 +4,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,7 +39,7 @@ fun StartPage(
         Row(
             modifier = Modifier
                 .padding(
-                    top = 100.dp,
+                    top = 170.dp,
                     bottom = 8.dp
                 )
 
@@ -47,7 +50,7 @@ fun StartPage(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = modifier
                     .fillMaxWidth()
-                    .clickable(onClick =  { navController.navigate(OfficeScreen.Main.name) })
+                    .clickable(onClick = { navController.navigate(OfficeScreen.Main.name) })
             ) {
                 Image(
                     painter = image,
@@ -56,28 +59,29 @@ fun StartPage(
                         .size(110.dp) // Задайте размер, который вам нужен
                 )
                 GreetingText()
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = stringResource(id = R.string.version),
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
-
-        Row(
+        Column(
             modifier = Modifier
                 .align(alignment = Alignment.CenterHorizontally)
                 .padding(
                     bottom = 30.dp
                 )
 
-        )
-        {
-
+        ) {
             Text(
                 text = stringResource(R.string.year),
-                fontSize = 12.sp,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.padding(
-                    start = 10.dp
-                )
-
+                style = MaterialTheme.typography.labelSmall
             )
+
+
+
+
         }
 
     }
