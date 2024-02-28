@@ -2,6 +2,8 @@ package com.myapp.office_mp.utils
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
@@ -65,7 +67,7 @@ fun GreetingCard(
     ) { it ->
         val image = painterResource(id = R.drawable.mylogo)
         Column(
-            modifier =  Modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
         ) {
@@ -124,23 +126,42 @@ fun GreetingCard(
                     })
             )
             {
-                val image = painterResource(id = R.drawable.mail_black_24dp)
-                Image(
-                    painter = image,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(20.dp) // Задайте размер, который вам нужен
+                Column {
+                    Row {
+                        val image = painterResource(id = R.drawable.mail_black_24dp)
+                        Image(
+                            painter = image,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(20.dp) // Задайте размер, который вам нужен
 
-                )
-                Text(
-                    text = stringResource(R.string.my_email),
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(
-                        start = 10.dp
-                    )
+                        )
+                        Text(
+                            text = stringResource(R.string.my_email),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.padding(
+                                start = 10.dp
+                            )
 
-                )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Row {
+                        Text(
+                            text = "Політика конфіденційності",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.ui.graphics.Color.Blue,
+                            modifier = Modifier.clickable {
+                                val privacyPolicyUrl = "https://omp.net.ua/gdpr"
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl))
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
+                }
+
+
             }
             Spacer(modifier = Modifier.height(5.dp))
             Row(

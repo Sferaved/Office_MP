@@ -11,8 +11,8 @@ android {
         applicationId = "com.myapp.office_mp"
         minSdk = 24
         targetSdk = 33
-        versionCode = 1023
-        versionName = "1.023"
+        versionCode = 1025
+        versionName = "1.025"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
