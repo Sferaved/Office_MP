@@ -2,7 +2,6 @@ package com.myapp.office_mp.utils
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -153,7 +152,7 @@ fun GreetingCard(
                             style = MaterialTheme.typography.bodyMedium,
                             color = androidx.compose.ui.graphics.Color.Blue,
                             modifier = Modifier.clickable {
-                                val privacyPolicyUrl = "https://omp.net.ua/gdpr"
+                                val privacyPolicyUrl = "https://omp.net.ua/gdpr-new"
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl))
                                 context.startActivity(intent)
                             }

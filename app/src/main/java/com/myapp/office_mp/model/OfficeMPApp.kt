@@ -1,6 +1,7 @@
 package com.myapp.office_mp.model
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -86,6 +87,7 @@ import com.myapp.office_mp.utils.GreetingCard
 import com.myapp.office_mp.utils.OfficeScreen
 import com.myapp.office_mp.utils.StartPage
 import com.myapp.office_mp.utils.db.DatabaseHelper
+import com.myapp.office_mp.utils.update.AppUpdater
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -105,10 +107,13 @@ import kotlin.system.exitProcess
 @Composable
 fun LOfficeMPApp(
     context: Context,
+
     navController: NavHostController = rememberNavController(),
     officeMPAppViewModel: OfficeMPAppViewModel = viewModel()
 ) {
+    val activity = LocalContext.current as Activity
     officeMPAppViewModel.setTimeToPush(context)
+
     Scaffold (
 
         bottomBar = {
@@ -151,6 +156,7 @@ fun LOfficeMPApp(
                 // Экран "Домой"
                 OfficeMPApp(
                     context,
+                    activity, // Передайте вашу активити
                     navController,
                     officeMPAppViewModel,
                 )
@@ -169,6 +175,7 @@ fun LOfficeMPApp(
 @Composable
 fun OfficeMPApp(
     context: Context,
+    activity: Activity,
     navController: NavController,
     viewModel: OfficeMPAppViewModel,
 ) {
@@ -260,6 +267,7 @@ fun OfficeMPApp(
         isOpen = isMenuOpen,
         onMenuDismiss = { isMenuOpen = false },
         context,
+        activity,
         accessCode,
         onSettingsChangedList = { newResultList ->
             resultList = newResultList
@@ -278,6 +286,7 @@ fun SettingsMenu(
     isOpen: Boolean,
     onMenuDismiss: () -> Unit,
     context: Context,
+    activity: Activity,
     accessCode: String,
     onSettingsChangedList: (List<EmailData>) -> Unit,
     onSettingsChangedProgress: (Boolean) -> Unit,
@@ -371,6 +380,20 @@ fun SettingsMenu(
 
                         // При нажатии на пункт меню открываем диалог
                         isDialogOpen = true
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    var isUpdate by remember { mutableStateOf(false) }
+
+                    if (isUpdate) {
+                        updateMyApp(activity)
+                        onMenuDismiss()
+                    }
+                    MenuItem(text = "\uD83D\uDEE0\uFE0F  Проверить новую версию") {
+
+
+                        // При нажатии на пункт меню открываем диалог
+                        isUpdate = true
                     }
 
 
@@ -816,3 +839,27 @@ fun setAlarm(
 }
 
 
+fun updateMyApp (
+    context: Activity
+) {
+    // Создание экземпляра AppUpdater
+    val appUpdater = AppUpdater(context)
+
+// Установка слушателя для обновления
+    appUpdater.setOnUpdateListener(object : AppUpdater.OnUpdateListener {
+        override fun onUpdateCompleted() {
+            // Действия при завершении обновления
+            appUpdater.unregisterListener()
+        }
+    })
+
+// Проверка наличия обновлений
+    appUpdater.checkForUpdate()
+
+// Регистрация слушателя для обновления состояния установки
+    appUpdater.registerListener()
+
+    // После завершения работы необходимо отписаться от слушателя
+
+
+}
