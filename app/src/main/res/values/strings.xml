@@ -15,8 +15,8 @@
   -->
 <resources>
     <string name="app_name">Наш офис</string>
-    <string name="app_code">1.027</string>
-    <string name="version">Версия 1.027</string>
+    <string name="app_code">1.029</string>
+    <string name="version">Версия 1.029</string>
     <string name="notification_channel_name">notify channel</string>
     <string name="notification_channel_description">notification_channel_description</string>
     <string name="author">Об авторе</string>

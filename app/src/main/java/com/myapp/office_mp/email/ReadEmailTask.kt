@@ -2,8 +2,11 @@ package com.myapp.office_mp.email
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.AsyncTask
+import android.os.Handler
 import android.util.Log
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import org.w3c.dom.Document
@@ -28,15 +31,21 @@ import javax.xml.parsers.DocumentBuilderFactory
 class ReadEmailTask(
     private val context: Context,
     private val accessCode: String
-) : AsyncTask<Void, Void, List<EmailData>>() {
-
-    override fun doInBackground(vararg voids: Void): List<EmailData> {
-        return readEmails(context)
+) {
+    suspend fun execute(): List<EmailData> {
+        return withContext(Dispatchers.IO) {
+            readEmails(context)
+        }
     }
     private fun readEmails(context:Context): List<EmailData> {
         val resultList = mutableListOf<EmailData>()
 
         try {
+            val message = "Поиск новых сообщений ..."
+            Handler(context.mainLooper).post {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+
             // Настройте свойства для подключения
             val props = Properties()
             props.setProperty("mail.store.protocol", "imaps")
@@ -55,38 +64,44 @@ class ReadEmailTask(
             val inbox: Folder = store.getFolder("Inbox")
 
             inbox.open(Folder.READ_ONLY)
-
-            val messages: Array<Message> = inbox.messages
-            val unreadMessages = messages.filter { !it.isSet(Flags.Flag.SEEN) }
-
-            // Обработайте сообщения
-            for (message in unreadMessages) {
-                // Проверка на Subject: CBMSG1
-                if (message.subject != null && message.subject.contains("CBMS")) {
+            Log.d("TAG", "readEmails: " + inbox.messageCount)
+            if (inbox.messageCount == 0) {
+                // Ваш код обработки случая пустого ящика
+                val message = "Нет новых сообщений"
+                Handler(context.mainLooper).post {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                val messages: Array<Message> = inbox.messages
+                val unreadMessages = messages.filter { !it.isSet(Flags.Flag.SEEN) }
+                // Ваш код дальнейшей обработки непрочитанных сообщений
+                for (message in unreadMessages) {
+                    // Проверка на Subject: CBMSG1
+                    if (message.subject != null && message.subject.contains("CBMS")) {
 //                if (message.subject != null) {
-                    // Вывести в лог различные поля сообщения
-                    Log.d("EmailReader", "Subject: ${message.subject}")
-                    Log.d("EmailReader", "From: ${message.from?.contentToString()}")
-                    Log.d("EmailReader", "To: ${message.getRecipients(Message.RecipientType.TO)?.contentToString()}")
-                    Log.d("EmailReader", "Date: ${message.sentDate}")
+                        // Вывести в лог различные поля сообщения
+                        Log.d("EmailReader", "Subject: ${message.subject}")
+                        Log.d("EmailReader", "From: ${message.from?.contentToString()}")
+                        Log.d("EmailReader", "To: ${message.getRecipients(Message.RecipientType.TO)?.contentToString()}")
+                        Log.d("EmailReader", "Date: ${message.sentDate}")
 
-                    // Вывод списка вложений
-                    val multipart: Multipart = message.content as Multipart
-                    for (j in 0 until multipart.count) {
-                        val bodyPart: BodyPart = multipart.getBodyPart(j)
-                        if (bodyPart is MimeBodyPart) {
-                            val mimeBodyPart: MimeBodyPart = bodyPart
-                            val fileName: String? = mimeBodyPart.fileName
-                            if (fileName != null) {
-                                Log.d("EmailReader_Att", "Attachment: $fileName")
-                                // Проверка на файл с расширением ".imfx"
-                                if (fileName.endsWith(".imfx")) {
-                                    val `is`: InputStream = mimeBodyPart.inputStream
-                                    val zipInputStream = ZipArchiveInputStream(`is`)
-                                    var entry: ZipArchiveEntry? = zipInputStream.nextZipEntry
+                        // Вывод списка вложений
+                        val multipart: Multipart = message.content as Multipart
+                        for (j in 0 until multipart.count) {
+                            val bodyPart: BodyPart = multipart.getBodyPart(j)
+                            if (bodyPart is MimeBodyPart) {
+                                val mimeBodyPart: MimeBodyPart = bodyPart
+                                val fileName: String? = mimeBodyPart.fileName
+                                if (fileName != null) {
+                                    Log.d("EmailReader_Att", "Attachment: $fileName")
+                                    // Проверка на файл с расширением ".imfx"
+                                    if (fileName.endsWith(".imfx")) {
+                                        val `is`: InputStream = mimeBodyPart.inputStream
+                                        val zipInputStream = ZipArchiveInputStream(`is`)
+                                        var entry: ZipArchiveEntry? = zipInputStream.nextZipEntry
 
-                                    while (entry != null) {
-                                       // Проверяем, что файл имеет расширение .xml
+                                        while (entry != null) {
+                                            // Проверяем, что файл имеет расширение .xml
                                             Log.d("TAG_imfx", "readEmails: ${entry.name}")
 
                                             if (entry.name.endsWith("doc1.xml")) {
@@ -116,35 +131,47 @@ class ReadEmailTask(
                                             }
                                             // Закрываем byteArrayInputStream после обработки содержимого файла
 
-                                   // Переходим к следующему файлу в архиве
-                                        entry = zipInputStream.nextZipEntry
+                                            // Переходим к следующему файлу в архиве
+                                            entry = zipInputStream.nextZipEntry
+                                        }
+
+
+                                        zipInputStream.close()
+
                                     }
 
 
-                                    zipInputStream.close()
-
                                 }
-
-
                             }
                         }
-                    }
 
-                    // Дополнительные поля можно вывести по аналогии
-                    // Разделитель для удобства чтения лога
-                    Log.d("EmailReader", "-----------------------------")
+                        // Дополнительные поля можно вывести по аналогии
+                        // Разделитель для удобства чтения лога
+                        Log.d("EmailReader", "-----------------------------")
+                    }
                 }
             }
+
+            // Обработайте сообщения
 
             // Закрыть папку и соединение
             inbox.close(false)
             store.close()
+            if (resultList.isEmpty()) {
+                val message = "Нет новых сообщений"
+                Handler(context.mainLooper).post {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             Log.d("EmailReader", "Error: $e")
         }
 
+
         return resultList
+
+
     }
 
 
@@ -287,6 +314,7 @@ class ReadEmailTask(
         resultList: MutableList<EmailData>,
         subject: String
     ) {
+
         zipInputStream?.use { inputStream ->
             val dbFactory: DocumentBuilderFactory = DocumentBuilderFactory.newInstance()
             val dBuilder: DocumentBuilder = dbFactory.newDocumentBuilder()
@@ -334,11 +362,14 @@ class ReadEmailTask(
                 if(Text != "") {
                     comment = Text
                     val resultListOld = getLastResultList(resultList)
-                    modificationDate = resultListOld.modificationDate
-                    docNumber = resultListOld.docNumber
-                    orgName = resultListOld.orgName
-                    userName = resultListOld.userName
-                    docInNum = resultListOld.docInNum
+                    if( resultListOld != null) {
+                        modificationDate = resultListOld.modificationDate
+                        docNumber = resultListOld.docNumber
+                        orgName = resultListOld.orgName
+                        userName = resultListOld.userName
+                        docInNum = resultListOld.docInNum
+                    }
+
                 }
 
                 getElementsByTagName("ccd_cl_tel").takeIf { it.length > 0 }?.let {

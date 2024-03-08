@@ -54,7 +54,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,12 +87,10 @@ import com.myapp.office_mp.utils.OfficeScreen
 import com.myapp.office_mp.utils.StartPage
 import com.myapp.office_mp.utils.db.DatabaseHelper
 import com.myapp.office_mp.utils.update.AppUpdater
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Properties
 import javax.mail.Flags
@@ -171,6 +168,7 @@ fun LOfficeMPApp(
 }
 
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OfficeMPApp(
@@ -207,22 +205,25 @@ fun OfficeMPApp(
         )
     } else if (isAccessCodeValid) {
         // Запускаем проверку почты или что-то еще, что нужно выполнить после успешного ввода кода доступа
-        LaunchedEffect(Unit) {
-            // Запускаем в глобальной coroutine
-            while (true) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    val readEmailTask = ReadEmailTask(context, accessCode)
-                    val result = readEmailTask.execute().get()
 
-                    // Обновляем состояние на главном потоке
-                    withContext(Dispatchers.Main) {
-                        resultList = result
-                        isChecking = false
-                    }
-                }
-                delay( 2 * 60 * 1000) // Задержка перед следующей проверкой
+        // Создание экземпляра задачи
+        val readEmailTask = ReadEmailTask(context, accessCode)
+
+// Запуск задачи асинхронно с помощью сопрограмм
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Выполнение задачи и получение результата
+                val result = readEmailTask.execute()
+
+                // Обновление состояния на главном потоке
+                resultList = result
+                isChecking = false
+            } catch (e: Exception) {
+                // Обработка исключений, если необходимо
             }
         }
+
+
     }
 
     // Состояние для открытия/закрытия бокового меню
@@ -254,12 +255,6 @@ fun OfficeMPApp(
                     ResultItem(it)
                 }
             }
-        } else if (!isChecking){
-            val message = "Нет новых сообщений"
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        } else {
-            val message = "Поиск новых сообщений ..."
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
 
     }
@@ -325,16 +320,24 @@ fun SettingsMenu(
                     Spacer(modifier = Modifier.height(10.dp))
                     MenuItem(text = "🔄"+" Обновить") {
                         onSettingsChangedProgress(true)
-                        GlobalScope.launch(Dispatchers.IO) {
-                            val readEmailTask = ReadEmailTask(context, accessCode)
-                            val result = readEmailTask.execute().get()
 
-                            // Обновляем состояние на главном потоке с помощью обратного вызова
-                            withContext(Dispatchers.Main) {
+                        // Создание экземпляра задачи
+                        val readEmailTask = ReadEmailTask(context, accessCode)
+
+// Запуск задачи асинхронно с помощью сопрограмм
+                        CoroutineScope(Dispatchers.Main).launch {
+                            try {
+                                // Выполнение задачи и получение результата
+                                val result = readEmailTask.execute()
+
+                                // Обновление состояния на главном потоке
                                 onSettingsChangedList(result)
                                 onSettingsChangedProgress(false)
+                            } catch (e: Exception) {
+                                // Обработка исключений, если необходимо
                             }
                         }
+
                         onMenuDismiss()
                     }
 
@@ -386,7 +389,7 @@ fun SettingsMenu(
                     var isUpdate by remember { mutableStateOf(false) }
 
                     if (isUpdate) {
-                        updateMyApp(activity)
+                        updateMyApp(activity, context)
                         onMenuDismiss()
                     }
                     MenuItem(text = "\uD83D\uDEE0\uFE0F  Проверить новую версию") {
@@ -840,11 +843,12 @@ fun setAlarm(
 
 
 fun updateMyApp (
-    context: Activity
+    activity: Activity,
+    context: Context
 ) {
     // Создание экземпляра AppUpdater
-    val appUpdater = AppUpdater(context)
-
+    val appUpdater = AppUpdater(activity, context)
+    Log.d("TAG", "updateMyApp: ")
 // Установка слушателя для обновления
     appUpdater.setOnUpdateListener(object : AppUpdater.OnUpdateListener {
         override fun onUpdateCompleted() {
